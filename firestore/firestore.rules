@@ -1,0 +1,188 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function role() {
+      return signedIn() ? userDoc().role : 'anonymous';
+    }
+
+    function isAdmin() {
+      return signedIn() && role() == 'admin';
+    }
+
+    function isCustomer() {
+      return signedIn() && role() == 'customer';
+    }
+
+    function isProviderAccount() {
+      return signedIn() && role() == 'provider';
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    // Only these order fields may change, and only by the right party.
+    function onlyChanged(allowedFields) {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(allowedFields);
+    }
+
+    // ---------- Users ----------
+
+    match /users/{userId} {
+      // A user reads and updates only their own profile. Admins manage all.
+      allow read: if isSelf(userId) || isAdmin();
+      // The profile document is created at registration by the account owner.
+      allow create: if isSelf(userId)
+                    && request.resource.data.uid == userId
+                    // A user may never grant themselves the admin role.
+                    && request.resource.data.role in ['customer', 'provider'];
+      allow update: if (isSelf(userId) && request.resource.data.role == resource.data.role)
+                    || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ---------- Providers ----------
+
+    match /providers/{providerId} {
+      // Provider profiles are public so customers can discover them.
+      allow read: if true;
+      allow create: if isProviderAccount()
+                    && request.auth.uid == providerId
+                    && request.resource.data.ownerId == request.auth.uid
+                    // A provider cannot verify themselves.
+                    && request.resource.data.isVerified == false;
+      allow update: if isAdmin()
+                    || (isProviderAccount()
+                        && resource.data.ownerId == request.auth.uid
+                        // Only an admin may change verification or the owner.
+                        && request.resource.data.isVerified == resource.data.isVerified
+                        && request.resource.data.ownerId == resource.data.ownerId
+                        // The rating is derived from reviews, never self set.
+                        && request.resource.data.rating == resource.data.rating
+                        && request.resource.data.reviewCount == resource.data.reviewCount);
+      allow delete: if isAdmin();
+
+      // Each provider manages their own service catalog.
+      match /services/{serviceId} {
+        allow read: if true;
+        allow create, update, delete: if isAdmin()
+          || (isProviderAccount()
+              && get(/databases/$(database)/documents/providers/$(providerId)).data.ownerId == request.auth.uid);
+      }
+    }
+
+    // ---------- Orders ----------
+
+    match /orders/{orderId} {
+      allow read: if isAdmin()
+                  || (signedIn() && resource.data.customerId == request.auth.uid)
+                  || (signedIn() && resource.data.providerId == request.auth.uid);
+
+      // A customer creates their own order, always starting as pending and
+      // unpaid so neither status can be forged at creation time.
+      allow create: if isCustomer()
+                    && request.resource.data.customerId == request.auth.uid
+                    && request.resource.data.orderStatus == 'pending'
+                    && request.resource.data.paymentStatus == 'pending'
+                    && request.resource.data.totalAmount >= 0;
+
+      allow update: if isAdmin()
+        // The provider moves the order through its lifecycle.
+        || (signedIn()
+            && resource.data.providerId == request.auth.uid
+            && onlyChanged(['orderStatus', 'paymentStatus', 'updatedAt']))
+        // The customer may only cancel, and only while still pending.
+        || (signedIn()
+            && resource.data.customerId == request.auth.uid
+            && resource.data.orderStatus == 'pending'
+            && request.resource.data.orderStatus == 'cancelled'
+            && onlyChanged(['orderStatus', 'updatedAt']));
+
+      allow delete: if isAdmin()
+        || (signedIn()
+            && resource.data.customerId == request.auth.uid
+            && resource.data.orderStatus in ['pending', 'cancelled']);
+    }
+
+    // ---------- Payments ----------
+    // Payment records are readable by the parties involved but are only
+    // ever marked paid by the Cloud Function using the Admin SDK, which
+    // bypasses these rules. No client can write a paid status.
+
+    match /payments/{paymentId} {
+      allow read: if isAdmin()
+                  || (signedIn() && resource.data.customerId == request.auth.uid)
+                  || (signedIn() && resource.data.providerId == request.auth.uid);
+      allow create: if isCustomer()
+                    && request.resource.data.customerId == request.auth.uid
+                    && request.resource.data.status == 'pending';
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ---------- Notifications ----------
+
+    match /notifications/{notificationId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      // Notifications are written for another user, for example a customer
+      // notifying a provider of a new order, so any signed in user may
+      // create one, but it must start unread.
+      allow create: if signedIn() && request.resource.data.isRead == false;
+      allow update: if signedIn()
+                    && resource.data.userId == request.auth.uid
+                    && onlyChanged(['isRead']);
+      allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    // ---------- Reviews ----------
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      // A customer may review only their own completed order, once.
+      allow create: if isCustomer()
+        && request.resource.data.customerId == request.auth.uid
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.customerId == request.auth.uid
+        && get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.orderStatus == 'completed';
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || (signedIn() && resource.data.customerId == request.auth.uid);
+    }
+
+    // ---------- Addresses ----------
+
+    match /addresses/{addressId} {
+      allow read, write: if isAdmin()
+        || (signedIn() && request.resource.data.userId == request.auth.uid)
+        || (signedIn() && resource != null && resource.data.userId == request.auth.uid);
+    }
+
+    // ---------- Settings ----------
+
+    match /settings/{document=**} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---------- USSD sessions ----------
+    // Written only by the Cloud Function through the Admin SDK.
+
+    match /ussd_sessions/{sessionId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+  }
+}

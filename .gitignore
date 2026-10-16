@@ -1,0 +1,17 @@
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+.vscode/
+
+# Secrets that must never be committed
+android/app/google-services.json
+android/key.properties
+*.jks
+*.keystore
+tools/service-account.json
+functions/node_modules/
+functions/lib/

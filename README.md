@@ -312,11 +312,32 @@ Creates one formal laundry provider, one Mama Fua provider, their service catalo
 
 ## Running the application
 
+Start the API and PostgreSQL:
+
 ```bash
-flutter clean
-flutter pub get
-flutter run
+docker compose up --build
 ```
+
+In a second terminal, run the Flutter app in Chrome:
+
+```bash
+flutter pub get
+flutter run -d chrome --web-port 8080 --dart-define=API_BASE_URL=http://localhost:8000
+```
+
+### Deploying the API on Render for Android APKs
+
+The `render.yaml` Blueprint creates the FastAPI service and PostgreSQL database. In Render, choose **New → Blueprint**, connect the GitHub repository containing this project, and deploy the Blueprint. Copy the API service's public `https://...onrender.com` URL after its `/api/health` endpoint reports `{"status":"ok","database":"postgresql"}`.
+
+Build an APK configured to use that deployed API:
+
+```bash
+flutter build apk --release --dart-define=API_BASE_URL=https://YOUR-API.onrender.com
+```
+
+Share `build/app/outputs/flutter-apk/app-release.apk` with Android users (for example, through Google Drive). They can download and install the APK; they do not install the Render API URL.
+
+The Blueprint uses Render's free plans, which are suitable for trying the app with friends but have limits: free web services can sleep when idle, and free PostgreSQL databases expire after 30 days. Upgrade the database to a paid plan before relying on it for persistent data.
 
 ---
 

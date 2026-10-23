@@ -1,17 +1,25 @@
 .dart_tool/
 .packages
 build/
+.packages
 .flutter-plugins
 .flutter-plugins-dependencies
+build/
+coverage/
 *.iml
 .idea/
 .vscode/
+__pycache__/
+*.py[cod]
+**/.env
+**/.env.*
+!**/.env.example
 
 # Secrets that must never be committed
-android/app/google-services.json
-android/key.properties
-*.jks
-*.keystore
-tools/service-account.json
+**/google-services.json
+**/key.properties
+**/*.jks
+**/*.keystore
+**/service-account.json
 functions/node_modules/
 functions/lib/

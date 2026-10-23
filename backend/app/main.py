@@ -2,6 +2,7 @@ import os, uuid, hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
@@ -12,6 +13,10 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
 DATABASE_URL=os.getenv('DATABASE_URL','postgresql+psycopg://laundry:laundry@localhost:5432/laundry')
 JWT_SECRET=os.getenv('JWT_SECRET','change-this-in-production')
 JWT_ALG='HS256'; ACCESS_MINUTES=60*24*7
+if DATABASE_URL.startswith('postgres://'):
+    DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
+elif DATABASE_URL.startswith('postgresql://'):
+    DATABASE_URL=DATABASE_URL.replace('postgresql://','postgresql+psycopg://',1)
 engine=create_engine(DATABASE_URL, pool_pre_ping=True)
 pwd=CryptContext(schemes=['bcrypt'],deprecated='auto'); oauth2=OAuth2PasswordBearer(tokenUrl='/api/auth/login')
 class Base(DeclarativeBase): pass
@@ -33,6 +38,8 @@ class Review(Base):
     __tablename__='reviews'; id:Mapped[str]=mapped_column(String(36),primary_key=True); orderId:Mapped[str]=mapped_column(String(36),index=True); customerId:Mapped[str]=mapped_column(String(36)); customerName:Mapped[str]=mapped_column(String(160)); providerId:Mapped[str]=mapped_column(String(36),index=True); rating:Mapped[int]=mapped_column(Integer); comment:Mapped[str]=mapped_column(Text,default=''); createdAt:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
 Base.metadata.create_all(engine)
 app=FastAPI(title='Laundry Service API',version='2.0.0')
+allowed_origins=[origin.strip() for origin in os.getenv('FRONTEND_ORIGINS','http://localhost:8080,http://127.0.0.1:8080').split(',') if origin.strip()]
+app.add_middleware(CORSMiddleware,allow_origins=allowed_origins,allow_credentials=True,allow_methods=['*'],allow_headers=['*'])
 
 def public(obj):
     d={c.name:getattr(obj,c.name) for c in obj.__table__.columns}; return d
@@ -163,7 +170,7 @@ def orders(customer_id:Optional[str]=None,provider_id:Optional[str]=None,status:
         if customer_id:q=q.where(Order.customerId==customer_id)
         if provider_id:q=q.where(Order.providerId==provider_id)
         if status:q=q.where(Order.orderStatus==status)
-        return [public(x) for x in db.scalars(q).limit(500)]
+        return [public(x) for x in db.scalars(q.limit(500))]
 @app.get('/api/orders/{oid}')
 def get_order(oid:str,u=Depends(current)):
     with Session(engine) as db:

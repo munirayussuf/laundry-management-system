@@ -1,7 +1,9 @@
-import os, uuid, hashlib
+import os, uuid, hashlib, math, logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from fastapi import FastAPI, Depends, HTTPException, Query
+from urllib.parse import parse_qs
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
+from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
@@ -34,6 +36,10 @@ class Payment(Base):
     __tablename__='payments'; id:Mapped[str]=mapped_column(String(36),primary_key=True); orderId:Mapped[str]=mapped_column(String(36),index=True); customerId:Mapped[str]=mapped_column(String(36)); providerId:Mapped[str]=mapped_column(String(36)); amount:Mapped[float]=mapped_column(Float); method:Mapped[str]=mapped_column(String(30)); status:Mapped[str]=mapped_column(String(30),default='pending'); providerReference:Mapped[Optional[str]]=mapped_column(String(160),nullable=True); failureReason:Mapped[Optional[str]]=mapped_column(Text,nullable=True); createdAt:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now); updatedAt:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
 class Notification(Base):
     __tablename__='notifications'; id:Mapped[str]=mapped_column(String(36),primary_key=True); userId:Mapped[str]=mapped_column(String(36),index=True); title:Mapped[str]=mapped_column(String(200)); body:Mapped[str]=mapped_column(Text); type:Mapped[str]=mapped_column(String(50)); relatedOrderId:Mapped[Optional[str]]=mapped_column(String(36),nullable=True); isRead:Mapped[bool]=mapped_column(Boolean,default=False); createdAt:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
+class SupportMessage(Base):
+    __tablename__='support_messages'; id:Mapped[str]=mapped_column(String(36),primary_key=True); userId:Mapped[str]=mapped_column(String(36),index=True); name:Mapped[str]=mapped_column(String(160)); email:Mapped[str]=mapped_column(String(255)); subject:Mapped[str]=mapped_column(String(200)); message:Mapped[str]=mapped_column(Text); status:Mapped[str]=mapped_column(String(20),default='open'); createdAt:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
+class UssdSession(Base):
+    __tablename__='ussd_sessions'; sessionId:Mapped[str]=mapped_column(String(160),primary_key=True); phoneNumber:Mapped[str]=mapped_column(String(32)); lastInput:Mapped[str]=mapped_column(Text,default=''); updatedAt:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
 class Review(Base):
     __tablename__='reviews'; id:Mapped[str]=mapped_column(String(36),primary_key=True); orderId:Mapped[str]=mapped_column(String(36),index=True); customerId:Mapped[str]=mapped_column(String(36)); customerName:Mapped[str]=mapped_column(String(160)); providerId:Mapped[str]=mapped_column(String(36),index=True); rating:Mapped[int]=mapped_column(Integer); comment:Mapped[str]=mapped_column(Text,default=''); createdAt:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
 Base.metadata.create_all(engine)
@@ -56,7 +62,17 @@ def current(token:str=Depends(oauth2)):
 
 class Register(BaseModel): name:str; email:EmailStr; password:str=Field(min_length=6); phone:str; role:str='customer'
 class Login(BaseModel): email:EmailStr; password:str
-class ProfileUpdate(BaseModel): name:str; phone:str=''; location:str=''
+class ProfileUpdate(BaseModel):
+    name:str
+    phone:str=''
+    location:str=''
+    profileImage:Optional[str]=None
+    latitude:Optional[float]=None
+    longitude:Optional[float]=None
+
+class SupportRequest(BaseModel):
+    subject:str=Field(min_length=3,max_length=200)
+    message:str=Field(min_length=10,max_length=10000)
 @app.get('/api/health')
 def health(): return {'status':'ok','database':'postgresql'}
 @app.post('/api/auth/register')
@@ -76,7 +92,32 @@ def me(u=Depends(current)): return public(u)
 def forgot(body:dict): return {'success':True,'message':'If that email exists, a password reset can be issued by the configured email service.'}
 @app.put('/api/users/me')
 def update_me(body:ProfileUpdate,u=Depends(current)):
-    with Session(engine) as db: x=db.get(User,u.uid); x.name=body.name;x.phone=body.phone;x.location=body.location;x.updatedAt=now();db.commit();db.refresh(x);return public(x)
+    with Session(engine) as db:
+        x=db.get(User,u.uid);x.name=body.name;x.phone=body.phone;x.location=body.location
+        if 'profileImage' in body.model_fields_set: x.profileImage=body.profileImage or ''
+        if 'latitude' in body.model_fields_set: x.latitude=body.latitude
+        if 'longitude' in body.model_fields_set: x.longitude=body.longitude
+        x.updatedAt=now();db.commit();db.refresh(x);return public(x)
+
+@app.post('/api/support/messages')
+def create_support_message(body:SupportRequest,u=Depends(current)):
+    with Session(engine) as db:
+        x=SupportMessage(id=str(uuid.uuid4()),userId=u.uid,name=u.name,email=u.email,subject=body.subject.strip(),message=body.message.strip())
+        db.add(x);db.commit();db.refresh(x);return public(x)
+
+@app.get('/api/support/messages')
+def support_messages(u=Depends(current)):
+    if u.role!='admin': raise HTTPException(403,'Admin access required')
+    with Session(engine) as db:return [public(x) for x in db.scalars(select(SupportMessage).order_by(desc(SupportMessage.createdAt)).limit(500))]
+
+@app.put('/api/support/messages/{message_id}')
+def update_support_message(message_id:str,body:dict,u=Depends(current)):
+    if u.role!='admin': raise HTTPException(403,'Admin access required')
+    if body.get('status') not in ('open','resolved'): raise HTTPException(400,'Status must be open or resolved')
+    with Session(engine) as db:
+        x=db.get(SupportMessage,message_id)
+        if not x: raise HTTPException(404,'Support message not found')
+        x.status=body['status'];db.commit();db.refresh(x);return public(x)
 
 @app.get('/api/users')
 def users(u=Depends(current)):
@@ -99,7 +140,7 @@ def delete_user(uid:str,u=Depends(current)):
         if not x: raise HTTPException(404,'User not found')
         db.delete(x); db.commit(); return {'success':True}
 @app.get('/api/providers')
-def providers(search:Optional[str]=None,provider_type:Optional[str]=None,washing_method:Optional[str]=None,ironing_method:Optional[str]=None,only_active:bool=True,only_available:bool=False):
+def providers(search:Optional[str]=None,provider_type:Optional[str]=None,washing_method:Optional[str]=None,ironing_method:Optional[str]=None,only_active:bool=True,only_available:bool=False,near_lat:Optional[float]=None,near_lon:Optional[float]=None):
     with Session(engine) as db:
         q=select(Provider).order_by(desc(Provider.rating))
         if only_active:q=q.where(Provider.isActive==True)
@@ -109,6 +150,15 @@ def providers(search:Optional[str]=None,provider_type:Optional[str]=None,washing
         if ironing_method:q=q.where(Provider.ironingMethod==ironing_method)
         rows=list(db.scalars(q));
         if search: rows=[x for x in rows if search.lower() in x.providerName.lower() or search.lower() in x.location.lower()]
+        if near_lat is not None and near_lon is not None:
+            def distance(provider):
+                if provider.latitude == 0 and provider.longitude == 0:
+                    return float('inf')
+                lat1,lat2=math.radians(near_lat),math.radians(provider.latitude)
+                dlat=lat2-lat1;dlon=math.radians(provider.longitude-near_lon)
+                a=math.sin(dlat/2)**2+math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2
+                return 6371*2*math.atan2(math.sqrt(a),math.sqrt(1-a))
+            rows.sort(key=distance)
         return [public(x) for x in rows]
 @app.get('/api/providers/{pid}')
 def provider(pid:str):
@@ -266,3 +316,112 @@ def cash_collected(pid:str,u=Depends(current)):
 def sms(body:dict,u=Depends(current)):
     # Gateway adapter hook: configure SMS_PROVIDER_URL/API credentials in production.
     return {'success':False,'detail':'SMS gateway is not configured. Configure it in the FastAPI environment.'}
+
+def _normalise_phone(raw:str)->str:
+    digits=''.join(c for c in raw if c.isdigit())
+    if digits.startswith('0'): return '254'+digits[1:]
+    return digits
+
+def _ussd_reply(message:str,continue_session:bool=True)->PlainTextResponse:
+    return PlainTextResponse(('CON ' if continue_session else 'END ')+message)
+
+@app.post('/ussd',response_class=PlainTextResponse)
+async def ussd(request:Request):
+    """Africa's Talking-compatible callback; text carries the accumulated menu choices."""
+    try:
+        body=await request.body()
+        fields=parse_qs(body.decode('utf-8'),keep_blank_values=True)
+        session_id=(fields.get('sessionId') or [''])[0].strip()
+        phone=_normalise_phone((fields.get('phoneNumber') or [''])[0])
+        text=(fields.get('text') or [''])[0].strip()
+        if not session_id or not phone:
+            return _ussd_reply('Invalid USSD request. Please try again later.',False)
+        steps=text.split('*') if text else []
+        with Session(engine) as db:
+            session=db.get(UssdSession,session_id)
+            if session is None:
+                session=UssdSession(sessionId=session_id,phoneNumber=phone,lastInput=text)
+                db.add(session)
+            else:
+                session.phoneNumber=phone;session.lastInput=text;session.updatedAt=now()
+            db.commit()
+            phone_values=[phone,'+'+phone]
+            if phone.startswith('254'): phone_values.append('0'+phone[3:])
+            user=next((x for x in db.scalars(select(User).where(User.phone.in_(phone_values))) if _normalise_phone(x.phone)==phone),None)
+            providers=list(db.scalars(select(Provider).where(Provider.isActive==True).order_by(desc(Provider.rating)).limit(5)))
+
+            if not steps:
+                greeting=f"Welcome {user.name.split()[0]}" if user else 'Welcome to Laundry Service'
+                return _ussd_reply(f"{greeting}\n1. Find Laundry\n2. Book Service\n3. My Orders\n4. Check Order Status\n5. Register\n6. Help")
+
+            choice=steps[0]
+            if choice=='1':
+                if not providers:return _ussd_reply('No providers are available right now.',False)
+                if len(steps)==1:
+                    return _ussd_reply('Providers near you\n'+'\n'.join(f'{i+1}. {p.providerName} KES {p.startingPrice:g}' for i,p in enumerate(providers)))
+                index=int(steps[1])-1 if steps[1].isdigit() else -1
+                if index<0 or index>=len(providers):return _ussd_reply('Invalid selection. Dial again.',False)
+                p=providers[index]
+                kind='Mama Fua / Jua Kali' if p.providerType=='mamaFua' else 'Formal Laundry'
+                return _ussd_reply(f'{p.providerName}\nType: {kind}\nLocation: {p.location}\nFrom KES {p.startingPrice:g}\nCall {p.phone}',False)
+
+            if choice=='2':
+                if user is None:return _ussd_reply('Register first using option 5, then dial again to book.',False)
+                if not providers:return _ussd_reply('No providers are available right now.',False)
+                if len(steps)==1:
+                    return _ussd_reply('Choose provider\n'+'\n'.join(f'{i+1}. {p.providerName}' for i,p in enumerate(providers)))
+                provider_index=int(steps[1])-1 if steps[1].isdigit() else -1
+                if provider_index<0 or provider_index>=len(providers):return _ussd_reply('Invalid provider selection.',False)
+                provider=providers[provider_index]
+                services=list(db.scalars(select(Service).where(Service.providerId==provider.id,Service.isAvailable==True).limit(5)))
+                if not services:return _ussd_reply('This provider has no services available.',False)
+                if len(steps)==2:
+                    return _ussd_reply('Choose service\n'+'\n'.join(f'{i+1}. {s.name} KES {s.price:g} {s.pricingUnit}' for i,s in enumerate(services)))
+                service_index=int(steps[2])-1 if steps[2].isdigit() else -1
+                if service_index<0 or service_index>=len(services):return _ussd_reply('Invalid service selection.',False)
+                service=services[service_index]
+                if len(steps)==3:return _ussd_reply(f'Enter quantity ({service.pricingUnit})')
+                try: quantity=float(steps[3])
+                except ValueError: quantity=0
+                if not math.isfinite(quantity) or quantity<=0:return _ussd_reply('Enter a valid quantity greater than zero.',False)
+                if len(steps)==4:return _ussd_reply('Enter your pickup location')
+                pickup=steps[4].strip()
+                if not pickup:return _ussd_reply('Pickup location is required.',False)
+                if len(steps)==5:return _ussd_reply('Payment method\n1. Mobile Money\n2. Cash on Delivery')
+                if steps[5] not in ('1','2'):return _ussd_reply('Choose 1 for Mobile Money or 2 for Cash.',False)
+                total=quantity*service.price
+                order=Order(id=str(uuid.uuid4()),customerId=user.uid,customerName=user.name,providerId=provider.id,providerName=provider.providerName,items=[{'serviceId':service.id,'serviceName':service.name,'quantity':quantity,'pricingUnit':service.pricingUnit,'unitPrice':service.price}],washingMethod=provider.washingMethod,ironingMethod=provider.ironingMethod,pickupRequested=True,deliveryRequested=True,pickupLocation={'label':pickup,'latitude':0,'longitude':0},deliveryLocation={'label':pickup,'latitude':0,'longitude':0},scheduledDate=now(),scheduledTime='As soon as possible',totalAmount=total,paymentMethod='mobileMoney' if steps[5]=='1' else 'cashOnDelivery',notes='Order placed through USSD')
+                db.add(order)
+                db.add(Notification(id=str(uuid.uuid4()),userId=provider.ownerId,title='New USSD Order',body=f'{user.name} placed a USSD order worth KES {total:.0f}.',type='newOrder',relatedOrderId=order.id))
+                db.commit()
+                return _ussd_reply(f'Order confirmed.\nProvider: {provider.providerName}\nTotal: KES {total:.0f}\nReference: {order.id[:8].upper()}',False)
+
+            if choice=='3':
+                if user is None:return _ussd_reply('No account found for this number.',False)
+                recent=list(db.scalars(select(Order).where(Order.customerId==user.uid).order_by(desc(Order.createdAt)).limit(5)))
+                if not recent:return _ussd_reply('You have no orders yet.',False)
+                return _ussd_reply('Recent orders\n'+'\n'.join(f'{o.providerName} KES {o.totalAmount:.0f} {o.orderStatus}' for o in recent),False)
+
+            if choice=='4':
+                if user is None:return _ussd_reply('No account found for this number.',False)
+                if len(steps)==1:return _ussd_reply('Enter your order reference')
+                reference=steps[1].strip().lower()
+                order=next((o for o in db.scalars(select(Order).where(Order.customerId==user.uid)) if o.id.lower().startswith(reference)),None)
+                if order is None:return _ussd_reply('Order not found. Check your reference.',False)
+                return _ussd_reply(f'Order {order.id[:8].upper()}\nProvider: {order.providerName}\nStatus: {order.orderStatus}\nAmount: KES {order.totalAmount:.0f}',False)
+
+            if choice=='5':
+                if user:return _ussd_reply('This number is already registered.',False)
+                if len(steps)==1:return _ussd_reply('Enter your full name')
+                if len(steps)==2:
+                    name=steps[1].strip()
+                    if len(name)<2:return _ussd_reply('Please enter your full name.',False)
+                    new_user=User(uid=str(uuid.uuid4()),name=name,email=f'{phone}@ussd.local',password_hash=pwd.hash(uuid.uuid4().hex),phone=phone,role='customer',location='')
+                    db.add(new_user);db.commit()
+                    return _ussd_reply(f'Welcome {name}. Your account is ready. Dial again to book.',False)
+
+            if choice=='6':return _ussd_reply('For help, send a message through Help and Support in the Laundry Service app.',False)
+            return _ussd_reply('Invalid choice. Dial again.',False)
+    except Exception:
+        logging.exception('USSD callback failed')
+        return _ussd_reply('The service is temporarily unavailable. Please try again shortly.',False)

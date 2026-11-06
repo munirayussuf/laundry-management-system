@@ -44,25 +44,55 @@ class NotificationsScreen extends ConsumerWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Row(
-              children: [
-                Expanded(child: Text('Notifications', style: AppTextStyles.heading2())),
-                TextButton(
-                  onPressed: () => repo.markAllAsRead(user.uid),
-                  child: const Text('Mark All Read'),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    final confirmed = await showDeleteConfirmationDialog(
-                      context,
-                      title: 'Clear All Notifications',
-                      message: 'Are you sure you want to delete all notifications? This action cannot be undone.',
-                    );
-                    if (confirmed) await repo.clearAll(user.uid);
-                  },
-                  child: const Text('Clear All'),
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final actions = Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 4,
+                  children: [
+                    TextButton(
+                      onPressed: () => repo.markAllAsRead(user.uid),
+                      child: const Text('Mark All Read'),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final confirmed = await showDeleteConfirmationDialog(
+                          context,
+                          title: 'Clear All Notifications',
+                          message:
+                              'Are you sure you want to delete all notifications? This action cannot be undone.',
+                        );
+                        if (confirmed) await repo.clearAll(user.uid);
+                      },
+                      child: const Text('Clear All'),
+                    ),
+                  ],
+                );
+
+                if (constraints.maxWidth < 390) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text('Notifications', style: AppTextStyles.heading2()),
+                      Align(alignment: Alignment.centerRight, child: actions),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Notifications',
+                        style: AppTextStyles.heading2(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    actions,
+                  ],
+                );
+              },
             ),
           ),
           Expanded(
@@ -97,20 +127,27 @@ class NotificationsScreen extends ConsumerWidget {
                         ),
                         child: const Icon(Icons.delete, color: AppColors.error),
                       ),
-                      confirmDismiss: (_) => showDeleteConfirmationDialog(context),
+                      confirmDismiss: (_) =>
+                          showDeleteConfirmationDialog(context),
                       onDismissed: (_) => repo.delete(n.id),
                       child: Card(
                         margin: const EdgeInsets.only(bottom: 10),
-                        color: n.isRead ? AppColors.surface : AppColors.surfaceAlt,
+                        color:
+                            n.isRead ? AppColors.surface : AppColors.surfaceAlt,
                         child: ListTile(
                           onTap: () => repo.markAsRead(n.id),
                           leading: CircleAvatar(
-                            backgroundColor: AppColors.primaryPink.withOpacity(0.15),
-                            child: Icon(iconForNotificationType(n.type), color: AppColors.primaryPink),
+                            backgroundColor:
+                                AppColors.primaryPink.withOpacity(0.15),
+                            child: Icon(iconForNotificationType(n.type),
+                                color: AppColors.primaryPink),
                           ),
-                          title: Text(n.title, style: AppTextStyles.bodyLarge()),
-                          subtitle: Text(n.body, style: AppTextStyles.bodySmall()),
-                          trailing: Text(DateFormat.MMMd().add_jm().format(n.createdAt),
+                          title:
+                              Text(n.title, style: AppTextStyles.bodyLarge()),
+                          subtitle:
+                              Text(n.body, style: AppTextStyles.bodySmall()),
+                          trailing: Text(
+                              DateFormat.MMMd().add_jm().format(n.createdAt),
                               style: AppTextStyles.caption()),
                         ),
                       ),

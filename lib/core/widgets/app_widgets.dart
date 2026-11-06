@@ -38,7 +38,9 @@ class PremiumButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 18, color: outlined ? AppColors.primaryPink : AppColors.white),
+                Icon(icon,
+                    size: 18,
+                    color: outlined ? AppColors.primaryPink : AppColors.white),
                 const SizedBox(width: 8),
               ],
               Text(label),
@@ -46,7 +48,8 @@ class PremiumButton extends StatelessWidget {
           );
 
     if (outlined) {
-      return OutlinedButton(onPressed: disabled ? null : onPressed, child: child);
+      return OutlinedButton(
+          onPressed: disabled ? null : onPressed, child: child);
     }
     return ElevatedButton(onPressed: disabled ? null : onPressed, child: child);
   }
@@ -57,7 +60,8 @@ class PremiumButton extends StatelessWidget {
 Future<bool> showDeleteConfirmationDialog(
   BuildContext context, {
   String title = 'Delete this item',
-  String message = 'Are you sure you want to delete this item? This action cannot be undone.',
+  String message =
+      'Are you sure you want to delete this item? This action cannot be undone.',
 }) async {
   final result = await showDialog<bool>(
     context: context,
@@ -130,10 +134,13 @@ class EmptyStateView extends StatelessWidget {
         children: [
           Icon(icon, size: 56, color: AppColors.rose),
           const SizedBox(height: 16),
-          Text(title, style: AppTextStyles.heading3(), textAlign: TextAlign.center),
+          Text(title,
+              style: AppTextStyles.heading3(), textAlign: TextAlign.center),
           if (message != null) ...[
             const SizedBox(height: 8),
-            Text(message!, style: AppTextStyles.bodyMedium(color: AppColors.textMuted), textAlign: TextAlign.center),
+            Text(message!,
+                style: AppTextStyles.bodyMedium(color: AppColors.textMuted),
+                textAlign: TextAlign.center),
           ],
           if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: 20),
@@ -165,7 +172,8 @@ class ErrorStateView extends StatelessWidget {
 /// Distinct but consistent badge for Formal Laundry versus Mama Fua / Jua
 /// Kali providers, as required by the provider discovery experience.
 class ProviderTypeBadge extends StatelessWidget {
-  const ProviderTypeBadge({super.key, required this.type, this.compact = false});
+  const ProviderTypeBadge(
+      {super.key, required this.type, this.compact = false});
   final ProviderType type;
   final bool compact;
 
@@ -174,7 +182,8 @@ class ProviderTypeBadge extends StatelessWidget {
     final isMamaFua = type == ProviderType.mamaFua;
     final color = isMamaFua ? AppColors.mamaFuaBadge : AppColors.formalBadge;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12, vertical: compact ? 3 : 5),
+      padding: EdgeInsets.symmetric(
+          horizontal: compact ? 8 : 12, vertical: compact ? 3 : 5),
       decoration: BoxDecoration(
         color: color.withOpacity(0.16),
         borderRadius: BorderRadius.circular(20),
@@ -183,8 +192,12 @@ class ProviderTypeBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(isMamaFua ? Icons.handshake_rounded : Icons.local_laundry_service_rounded,
-              size: compact ? 12 : 14, color: color),
+          Icon(
+              isMamaFua
+                  ? Icons.handshake_rounded
+                  : Icons.local_laundry_service_rounded,
+              size: compact ? 12 : 14,
+              color: color),
           const SizedBox(width: 4),
           Text(type.label, style: AppTextStyles.caption(color: color)),
         ],
@@ -224,7 +237,8 @@ class OrderStatusBadge extends StatelessWidget {
 }
 
 class SectionHeader extends StatelessWidget {
-  const SectionHeader({super.key, required this.title, this.actionLabel, this.onAction});
+  const SectionHeader(
+      {super.key, required this.title, this.actionLabel, this.onAction});
   final String title;
   final String? actionLabel;
   final VoidCallback? onAction;
@@ -270,6 +284,7 @@ class PinkAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final canPop = showBack && Navigator.of(context).canPop();
+    final narrowScreen = MediaQuery.sizeOf(context).width < 360;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
@@ -279,7 +294,10 @@ class PinkAppBar extends StatelessWidget implements PreferredSizeWidget {
           gradient: AppColors.pinkGradient,
           borderRadius: BorderRadius.circular(22),
           boxShadow: const [
-            BoxShadow(color: AppColors.pinkGlow, blurRadius: 18, offset: Offset(0, 6)),
+            BoxShadow(
+                color: AppColors.pinkGlow,
+                blurRadius: 18,
+                offset: Offset(0, 6)),
           ],
         ),
         child: Row(
@@ -294,7 +312,8 @@ class PinkAppBar extends StatelessWidget implements PreferredSizeWidget {
                     color: AppColors.white.withOpacity(0.22),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.arrow_back_rounded, color: AppColors.white, size: 20),
+                  child: const Icon(Icons.arrow_back_rounded,
+                      color: AppColors.white, size: 20),
                 ),
               )
             else if (leadingIcon != null)
@@ -315,16 +334,18 @@ class PinkAppBar extends StatelessWidget implements PreferredSizeWidget {
                 children: [
                   Text(
                     title,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.heading3(color: AppColors.white),
+                    style: AppTextStyles.heading3(color: AppColors.white)
+                        .copyWith(fontSize: narrowScreen ? 16 : 18),
                   ),
                   if (subtitle != null)
                     Text(
                       subtitle!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.bodySmall(color: AppColors.white.withOpacity(0.85)),
+                      style: AppTextStyles.bodySmall(
+                          color: AppColors.white.withOpacity(0.85)),
                     ),
                 ],
               ),
@@ -351,15 +372,22 @@ class IconTile extends StatelessWidget {
     return Container(
       height: size,
       width: size,
-      decoration: const BoxDecoration(color: AppColors.softPink, shape: BoxShape.circle),
-      child: Icon(icon, size: size * 0.5, color: color ?? AppColors.primaryPink),
+      decoration: const BoxDecoration(
+          color: AppColors.softPink, shape: BoxShape.circle),
+      child:
+          Icon(icon, size: size * 0.5, color: color ?? AppColors.primaryPink),
     );
   }
 }
 
 /// A white card with the standard hairline pink border and rounded corners.
 class AppCard extends StatelessWidget {
-  const AppCard({super.key, required this.child, this.padding, this.onTap, this.tinted = false});
+  const AppCard(
+      {super.key,
+      required this.child,
+      this.padding,
+      this.onTap,
+      this.tinted = false});
 
   final Widget child;
   final EdgeInsetsGeometry? padding;

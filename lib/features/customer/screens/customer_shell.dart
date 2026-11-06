@@ -31,11 +31,16 @@ class CustomerShell extends ConsumerWidget {
         currentIndex: index,
         onTap: (i) => ref.read(customerTabIndexProvider.notifier).state = i,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.explore_rounded), label: 'Explore'),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: 'Orders'),
-          BottomNavigationBarItem(icon: Icon(Icons.notifications_rounded), label: 'Notifications'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.home_rounded), label: 'Home'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.explore_rounded), label: 'Find'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.receipt_long_rounded), label: 'Orders'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.notifications_rounded), label: 'Alerts'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.person_rounded), label: 'Profile'),
         ],
       ),
     );

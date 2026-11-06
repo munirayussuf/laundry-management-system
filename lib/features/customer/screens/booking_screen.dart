@@ -7,6 +7,7 @@ import '../../../core/models/provider_model.dart';
 import '../../../core/models/service_model.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/routes/app_router.dart';
+import '../../../core/services/location_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/app_widgets.dart';
@@ -29,6 +30,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   final _pickupController = TextEditingController();
   final _deliveryController = TextEditingController();
   final _notesController = TextEditingController();
+  double? _pickupLatitude;
+  double? _pickupLongitude;
+  double? _deliveryLatitude;
+  double? _deliveryLongitude;
   DateTime? _scheduledDate;
   TimeOfDay? _scheduledTime;
   PaymentMethod _paymentMethod = PaymentMethod.cashOnDelivery;
@@ -55,11 +60,40 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   }
 
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+    final picked =
+        await showTimePicker(context: context, initialTime: TimeOfDay.now());
     if (picked != null) setState(() => _scheduledTime = picked);
   }
 
-  Future<void> _submit(ProviderModel provider, List<ServiceModel> services) async {
+  Future<void> _captureAddressLocation({required bool pickup}) async {
+    try {
+      final position = await LocationService().currentPosition();
+      final label = LocationService().describe(position);
+      setState(() {
+        if (pickup) {
+          _pickupController.text = label;
+          _pickupLatitude = position.latitude;
+          _pickupLongitude = position.longitude;
+        } else {
+          _deliveryController.text = label;
+          _deliveryLatitude = position.latitude;
+          _deliveryLongitude = position.longitude;
+        }
+      });
+    } catch (error) {
+      if (mounted) {
+        showErrorSnackBar(
+          context,
+          error is StateError
+              ? error.message.toString()
+              : 'Unable to read your location. Check your phone settings and try again.',
+        );
+      }
+    }
+  }
+
+  Future<void> _submit(
+      ProviderModel provider, List<ServiceModel> services) async {
     final user = ref.read(currentUserProvider).valueOrNull;
     if (user == null) return;
 
@@ -78,7 +112,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     }
 
     if (chosenItems.isEmpty) {
-      showErrorSnackBar(context, 'Please select at least one service and quantity.');
+      showErrorSnackBar(
+          context, 'Please select at least one service and quantity.');
       return;
     }
     if (_pickupRequested && _pickupController.text.trim().isEmpty) {
@@ -114,8 +149,16 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         ironingMethod: _ironingMethod,
         pickupRequested: _pickupRequested,
         deliveryRequested: _deliveryRequested,
-        pickupAddress: OrderAddress(label: _pickupController.text.trim()),
-        deliveryAddress: OrderAddress(label: _deliveryController.text.trim()),
+        pickupAddress: OrderAddress(
+          label: _pickupController.text.trim(),
+          latitude: _pickupLatitude ?? 0,
+          longitude: _pickupLongitude ?? 0,
+        ),
+        deliveryAddress: OrderAddress(
+          label: _deliveryController.text.trim(),
+          latitude: _deliveryLatitude ?? 0,
+          longitude: _deliveryLongitude ?? 0,
+        ),
         scheduledDate: scheduledDateTime,
         scheduledTime: timeLabel,
         paymentMethod: _paymentMethod,
@@ -135,19 +178,25 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       await ref.read(notificationRepositoryProvider).create(
             userId: provider.ownerId,
             title: 'New Order Received',
-            body: '${user.name} booked ${chosenItems.length} service(s) worth KES ${order.totalAmount.toStringAsFixed(0)}.',
+            body:
+                '${user.name} booked ${chosenItems.length} service(s) worth KES ${order.totalAmount.toStringAsFixed(0)}.',
             type: NotificationType.newOrder,
             relatedOrderId: order.id,
           );
 
-      await ref.read(smsServiceProvider).sendOrderConfirmation(user.phone, order.id, order.totalAmount);
+      await ref
+          .read(smsServiceProvider)
+          .sendOrderConfirmation(user.phone, order.id, order.totalAmount);
 
       if (mounted) {
-        showSuccessSnackBar(context, 'Your order has been placed successfully.');
+        showSuccessSnackBar(
+            context, 'Your order has been placed successfully.');
         context.go('${AppRoutes.customerHome}/order/${order.id}');
       }
     } catch (e) {
-      if (mounted) showErrorSnackBar(context, 'Could not place your order. Please try again.');
+      if (mounted)
+        showErrorSnackBar(
+            context, 'Could not place your order. Please try again.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -166,7 +215,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final providerRepo = ref.watch(providerRepositoryProvider);
 
     return Scaffold(
-      appBar: const PinkAppBar(title: 'Book Service', subtitle: 'Choose your services and schedule'),
+      appBar: const PinkAppBar(
+          title: 'Book Service', subtitle: 'Choose your services and schedule'),
       body: StreamBuilder<ProviderModel?>(
         stream: providerRepo.watchProvider(widget.providerId),
         builder: (context, providerSnapshot) {
@@ -185,53 +235,74 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     child: ListView(
                       padding: const EdgeInsets.all(20),
                       children: [
-                        Text('Select Services', style: AppTextStyles.heading3()),
+                        Text('Select Services',
+                            style: AppTextStyles.heading3()),
                         const SizedBox(height: 8),
                         if (services.isEmpty)
                           const EmptyStateView(
                             icon: Icons.list_alt,
                             title: 'No Services Available',
-                            message: 'This provider has not added any services yet.',
+                            message:
+                                'This provider has not added any services yet.',
                           )
                         else
                           ...services.map((service) => _ServiceQuantityTile(
                                 service: service,
                                 quantity: _selectedQuantities[service.id] ?? 0,
-                                onChanged: (qty) => setState(() => _selectedQuantities[service.id] = qty),
+                                onChanged: (qty) => setState(() =>
+                                    _selectedQuantities[service.id] = qty),
                               )),
                         const SizedBox(height: 20),
                         Text('Washing Method', style: AppTextStyles.heading3()),
                         const SizedBox(height: 8),
-                        Wrap(spacing: 10, children: WashingMethod.values.map((m) {
-                          return ChoiceChip(
-                            label: Text(m.label),
-                            selected: _washingMethod == m,
-                            onSelected: (_) => setState(() => _washingMethod = m),
-                          );
-                        }).toList()),
+                        Wrap(
+                            spacing: 10,
+                            children: WashingMethod.values.map((m) {
+                              return ChoiceChip(
+                                label: Text(m.label),
+                                selected: _washingMethod == m,
+                                onSelected: (_) =>
+                                    setState(() => _washingMethod = m),
+                              );
+                            }).toList()),
                         const SizedBox(height: 20),
                         Text('Ironing Method', style: AppTextStyles.heading3()),
                         const SizedBox(height: 8),
-                        Wrap(spacing: 10, children: IroningMethod.values.map((m) {
-                          return ChoiceChip(
-                            label: Text(m.label),
-                            selected: _ironingMethod == m,
-                            onSelected: (_) => setState(() => _ironingMethod = m),
-                          );
-                        }).toList()),
+                        Wrap(
+                            spacing: 10,
+                            children: IroningMethod.values.map((m) {
+                              return ChoiceChip(
+                                label: Text(m.label),
+                                selected: _ironingMethod == m,
+                                onSelected: (_) =>
+                                    setState(() => _ironingMethod = m),
+                              );
+                            }).toList()),
                         const SizedBox(height: 20),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           title: const Text('Request Pickup'),
                           value: _pickupRequested,
-                          onChanged: (v) => setState(() => _pickupRequested = v),
+                          onChanged: (v) =>
+                              setState(() => _pickupRequested = v),
                         ),
                         if (_pickupRequested)
                           TextField(
                             controller: _pickupController,
+                            onChanged: (_) {
+                              _pickupLatitude = null;
+                              _pickupLongitude = null;
+                            },
                             decoration: const InputDecoration(
                               labelText: 'Pickup Location',
                               prefixIcon: Icon(Icons.my_location),
+                            ).copyWith(
+                              suffixIcon: IconButton(
+                                tooltip: 'Use current location',
+                                onPressed: () =>
+                                    _captureAddressLocation(pickup: true),
+                                icon: const Icon(Icons.gps_fixed),
+                              ),
                             ),
                           ),
                         const SizedBox(height: 12),
@@ -239,18 +310,31 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                           contentPadding: EdgeInsets.zero,
                           title: const Text('Request Delivery'),
                           value: _deliveryRequested,
-                          onChanged: (v) => setState(() => _deliveryRequested = v),
+                          onChanged: (v) =>
+                              setState(() => _deliveryRequested = v),
                         ),
                         if (_deliveryRequested)
                           TextField(
                             controller: _deliveryController,
+                            onChanged: (_) {
+                              _deliveryLatitude = null;
+                              _deliveryLongitude = null;
+                            },
                             decoration: const InputDecoration(
                               labelText: 'Delivery Location',
                               prefixIcon: Icon(Icons.flag_outlined),
+                            ).copyWith(
+                              suffixIcon: IconButton(
+                                tooltip: 'Use current location',
+                                onPressed: () =>
+                                    _captureAddressLocation(pickup: false),
+                                icon: const Icon(Icons.gps_fixed),
+                              ),
                             ),
                           ),
                         const SizedBox(height: 20),
-                        Text('Preferred Date And Time', style: AppTextStyles.heading3()),
+                        Text('Preferred Date And Time',
+                            style: AppTextStyles.heading3()),
                         const SizedBox(height: 8),
                         Row(children: [
                           Expanded(
@@ -283,13 +367,16 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                         const SizedBox(height: 20),
                         Text('Payment Method', style: AppTextStyles.heading3()),
                         const SizedBox(height: 8),
-                        Wrap(spacing: 10, children: PaymentMethod.values.map((m) {
-                          return ChoiceChip(
-                            label: Text(m.label),
-                            selected: _paymentMethod == m,
-                            onSelected: (_) => setState(() => _paymentMethod = m),
-                          );
-                        }).toList()),
+                        Wrap(
+                            spacing: 10,
+                            children: PaymentMethod.values.map((m) {
+                              return ChoiceChip(
+                                label: Text(m.label),
+                                selected: _paymentMethod == m,
+                                onSelected: (_) =>
+                                    setState(() => _paymentMethod = m),
+                              );
+                            }).toList()),
                       ],
                     ),
                   ),
@@ -298,28 +385,53 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceMuted,
-                        border: Border(top: BorderSide(color: AppColors.border)),
+                        border:
+                            Border(top: BorderSide(color: AppColors.border)),
                       ),
-                      child: Row(
-                        children: [
-                          Column(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final totalLabel = Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Total Amount', style: AppTextStyles.bodySmall()),
+                              Text('Total Amount',
+                                  style: AppTextStyles.bodySmall()),
                               Text('KES ${total.toStringAsFixed(0)}',
-                                  style: AppTextStyles.heading3(color: AppColors.primaryPink)),
+                                  style: AppTextStyles.heading3(
+                                      color: AppColors.primaryPink)),
                             ],
-                          ),
-                          const Spacer(),
-                          SizedBox(
-                            width: 180,
+                          );
+                          final submitButton = SizedBox(
+                            width: constraints.maxWidth < 360
+                                ? double.infinity
+                                : 180,
                             child: PremiumButton(
                               label: 'Place Order',
                               isLoading: _isSubmitting,
-                              onPressed: total > 0 ? () => _submit(provider, services) : null,
+                              onPressed: total > 0
+                                  ? () => _submit(provider, services)
+                                  : null,
                             ),
-                          ),
-                        ],
+                          );
+
+                          if (constraints.maxWidth < 360) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                totalLabel,
+                                const SizedBox(height: 10),
+                                submitButton,
+                              ],
+                            );
+                          }
+
+                          return Row(
+                            children: [
+                              totalLabel,
+                              const Spacer(),
+                              submitButton,
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -334,7 +446,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 }
 
 class _ServiceQuantityTile extends StatelessWidget {
-  const _ServiceQuantityTile({required this.service, required this.quantity, required this.onChanged});
+  const _ServiceQuantityTile(
+      {required this.service, required this.quantity, required this.onChanged});
   final ServiceModel service;
   final double quantity;
   final ValueChanged<double> onChanged;
@@ -352,8 +465,10 @@ class _ServiceQuantityTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(service.name, style: AppTextStyles.bodyLarge()),
-                  Text('KES ${service.price.toStringAsFixed(0)} / ${service.pricingUnit}',
-                      style: AppTextStyles.bodySmall(color: AppColors.primaryPink)),
+                  Text(
+                      'KES ${service.price.toStringAsFixed(0)} / ${service.pricingUnit}',
+                      style: AppTextStyles.bodySmall(
+                          color: AppColors.primaryPink)),
                 ],
               ),
             ),
@@ -363,7 +478,8 @@ class _ServiceQuantityTile extends StatelessWidget {
             ),
             Text(quantity.toStringAsFixed(0), style: AppTextStyles.bodyLarge()),
             IconButton(
-              icon: const Icon(Icons.add_circle_outline, color: AppColors.primaryPink),
+              icon: const Icon(Icons.add_circle_outline,
+                  color: AppColors.primaryPink),
               onPressed: () => onChanged(quantity + 1),
             ),
           ],

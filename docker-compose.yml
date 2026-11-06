@@ -17,6 +17,20 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://laundry:laundry@db:5432/laundry
       JWT_SECRET: change-this-secret-before-production
+      AT_USERNAME: ${AT_USERNAME:-}
+      AT_API_KEY: ${AT_API_KEY:-}
+      AT_SENDER_ID: ${AT_SENDER_ID:-}
+      AT_SMS_URL: ${AT_SMS_URL:-}
+      MPESA_ENV: ${MPESA_ENV:-sandbox}
+      MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY:-}
+      MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET:-}
+      MPESA_SHORTCODE: ${MPESA_SHORTCODE:-}
+      MPESA_PASSKEY: ${MPESA_PASSKEY:-}
+      MPESA_TRANSACTION_TYPE: ${MPESA_TRANSACTION_TYPE:-CustomerPayBillOnline}
+      MPESA_PARTY_B: ${MPESA_PARTY_B:-}
+      MPESA_CALLBACK_URL: ${MPESA_CALLBACK_URL:-}
+      MPESA_CALLBACK_TOKEN: ${MPESA_CALLBACK_TOKEN:-}
+      USSD_CALLBACK_TOKEN: ${USSD_CALLBACK_TOKEN:-}
     ports:
       - "8000:8000"
     depends_on:

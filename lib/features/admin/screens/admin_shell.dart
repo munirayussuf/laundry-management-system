@@ -6,6 +6,7 @@ import 'admin_dashboard_screen.dart';
 import 'admin_users_screen.dart';
 import 'admin_providers_screen.dart';
 import 'admin_orders_screen.dart';
+import 'admin_support_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -22,6 +23,7 @@ class _AdminShellState extends State<AdminShell> {
     AdminUsersScreen(),
     AdminProvidersScreen(),
     AdminOrdersScreen(),
+    AdminSupportScreen(),
     ProfileScreen(role: UserRole.admin),
   ];
 
@@ -34,11 +36,18 @@ class _AdminShellState extends State<AdminShell> {
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.people_rounded), label: 'Users'),
-          BottomNavigationBarItem(icon: Icon(Icons.storefront_rounded), label: 'Providers'),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: 'Orders'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings_rounded), label: 'Settings'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.dashboard_rounded), label: 'Home'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.people_rounded), label: 'Users'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.storefront_rounded), label: 'Shops'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.receipt_long_rounded), label: 'Orders'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.support_agent_rounded), label: 'Support'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.settings_rounded), label: 'Profile'),
         ],
       ),
     );

@@ -7,6 +7,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../core/routes/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/utils/profile_image_provider.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../widgets/provider_card.dart';
 
@@ -31,14 +32,25 @@ class CustomerHomeScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Welcome Back', style: AppTextStyles.bodyMedium(color: AppColors.textMuted)),
-                        Text(user?.name.split(' ').first ?? 'Guest', style: AppTextStyles.heading2()),
+                        Text('Welcome Back',
+                            style: AppTextStyles.bodyMedium(
+                                color: AppColors.textMuted)),
+                        Text(user?.name.split(' ').first ?? 'Guest',
+                            style: AppTextStyles.heading2()),
                         if (user?.location.isNotEmpty == true)
                           Row(
                             children: [
-                              const Icon(Icons.location_on, size: 14, color: AppColors.primaryPink),
+                              const Icon(Icons.location_on,
+                                  size: 14, color: AppColors.primaryPink),
                               const SizedBox(width: 4),
-                              Text(user!.location, style: AppTextStyles.bodySmall()),
+                              Expanded(
+                                child: Text(
+                                  user!.location,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTextStyles.bodySmall(),
+                                ),
+                              ),
                             ],
                           ),
                       ],
@@ -47,8 +59,9 @@ class CustomerHomeScreen extends ConsumerWidget {
                   CircleAvatar(
                     radius: 24,
                     backgroundColor: AppColors.surfaceAlt,
-                    backgroundImage:
-                        (user?.profileImage.isNotEmpty ?? false) ? NetworkImage(user!.profileImage) : null,
+                    backgroundImage: user == null
+                        ? null
+                        : profileImageProvider(user.profileImage),
                     child: (user?.profileImage.isEmpty ?? true)
                         ? const Icon(Icons.person, color: AppColors.primaryPink)
                         : null,
@@ -61,9 +74,11 @@ class CustomerHomeScreen extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: GestureDetector(
-                onTap: () => ref.read(customerTabIndexProvider.notifier).state = 1,
+                onTap: () =>
+                    ref.read(customerTabIndexProvider.notifier).state = 1,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceAlt,
                     borderRadius: BorderRadius.circular(16),
@@ -72,7 +87,9 @@ class CustomerHomeScreen extends ConsumerWidget {
                   child: Row(children: [
                     const Icon(Icons.search, color: AppColors.textMuted),
                     const SizedBox(width: 10),
-                    Text('Search providers or services', style: AppTextStyles.bodyMedium(color: AppColors.textMuted)),
+                    Text('Search providers or services',
+                        style: AppTextStyles.bodyMedium(
+                            color: AppColors.textMuted)),
                   ]),
                 ),
               ),
@@ -81,17 +98,20 @@ class CustomerHomeScreen extends ConsumerWidget {
           // Active order banner
           SliverToBoxAdapter(
             child: StreamBuilder(
-              stream: user == null ? null : orderRepo.watchCustomerOrders(user.uid),
+              stream:
+                  user == null ? null : orderRepo.watchCustomerOrders(user.uid),
               builder: (context, snapshot) {
                 final orders = snapshot.data ?? [];
                 final active = orders.where((o) =>
-                    o.orderStatus != OrderStatus.completed && o.orderStatus != OrderStatus.cancelled);
+                    o.orderStatus != OrderStatus.completed &&
+                    o.orderStatus != OrderStatus.cancelled);
                 if (active.isEmpty) return const SizedBox.shrink();
                 final order = active.first;
                 return Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                   child: GestureDetector(
-                    onTap: () => context.push('${AppRoutes.customerHome}/order/${order.id}'),
+                    onTap: () => context
+                        .push('${AppRoutes.customerHome}/order/${order.id}'),
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -100,20 +120,24 @@ class CustomerHomeScreen extends ConsumerWidget {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.local_shipping_rounded, color: AppColors.white),
+                          const Icon(Icons.local_shipping_rounded,
+                              color: AppColors.white),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text('Active Order With ${order.providerName}',
-                                    style: AppTextStyles.bodyMedium(color: AppColors.white)),
+                                    style: AppTextStyles.bodyMedium(
+                                        color: AppColors.white)),
                                 Text(order.orderStatus.label,
-                                    style: AppTextStyles.caption(color: AppColors.white)),
+                                    style: AppTextStyles.caption(
+                                        color: AppColors.white)),
                               ],
                             ),
                           ),
-                          const Icon(Icons.chevron_right, color: AppColors.white),
+                          const Icon(Icons.chevron_right,
+                              color: AppColors.white),
                         ],
                       ),
                     ),
@@ -127,24 +151,28 @@ class CustomerHomeScreen extends ConsumerWidget {
             child: SectionHeader(
               title: 'Mama Fua Providers',
               actionLabel: 'See All',
-              onAction: () => ref.read(customerTabIndexProvider.notifier).state = 1,
+              onAction: () =>
+                  ref.read(customerTabIndexProvider.notifier).state = 1,
             ),
           ),
           SliverToBoxAdapter(
             child: _ProviderRow(
-              stream: providerRepo.discoverProviders(providerType: ProviderType.mamaFua),
+              stream: providerRepo.discoverProviders(
+                  providerType: ProviderType.mamaFua),
             ),
           ),
           SliverToBoxAdapter(
             child: SectionHeader(
               title: 'Formal Laundry Providers',
               actionLabel: 'See All',
-              onAction: () => ref.read(customerTabIndexProvider.notifier).state = 1,
+              onAction: () =>
+                  ref.read(customerTabIndexProvider.notifier).state = 1,
             ),
           ),
           SliverToBoxAdapter(
             child: _ProviderRow(
-              stream: providerRepo.discoverProviders(providerType: ProviderType.formalLaundry),
+              stream: providerRepo.discoverProviders(
+                  providerType: ProviderType.formalLaundry),
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
@@ -164,13 +192,16 @@ class _ProviderRow extends StatelessWidget {
       stream: stream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+          return const SizedBox(
+              height: 200, child: Center(child: CircularProgressIndicator()));
         }
         final providers = snapshot.data ?? [];
         if (providers.isEmpty) {
           return const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
-            child: EmptyStateView(icon: Icons.storefront_outlined, title: 'No Providers Found Yet'),
+            child: EmptyStateView(
+                icon: Icons.storefront_outlined,
+                title: 'No Providers Found Yet'),
           );
         }
         return SizedBox(
@@ -181,7 +212,8 @@ class _ProviderRow extends StatelessWidget {
             itemCount: providers.length,
             itemBuilder: (context, i) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: SizedBox(width: 190, child: ProviderCard(provider: providers[i])),
+              child: SizedBox(
+                  width: 190, child: ProviderCard(provider: providers[i])),
             ),
           ),
         );

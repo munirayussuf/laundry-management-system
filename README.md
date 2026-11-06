@@ -1,6 +1,6 @@
 # Laundry Service Management System
 
-A Flutter and Firebase laundry marketplace built for Kenya, supporting both formal laundry businesses and Mama Fua / Jua Kali operators as equal, first class providers. Customers with smartphones use the Android application; customers on feature phones use the USSD channel served by the same Firestore database.
+A Flutter and FastAPI/PostgreSQL laundry marketplace built for Kenya, supporting formal laundry businesses and Mama Fua / Jua Kali operators. Smartphone customers use the Android application; feature-phone customers use the USSD callback at `/ussd`, which is served by the active FastAPI backend. The older Firebase implementation remains under `legacy_firebase_functions/` and is not used by the current app.
 
 ---
 
@@ -12,7 +12,7 @@ A Flutter and Firebase laundry marketplace built for Kenya, supporting both form
 4. [Folder structure](#folder-structure)
 5. [Database design](#database-design)
 6. [Installation](#installation)
-7. [Firebase setup](#firebase-setup)
+7. [API and administrator setup](#api-and-administrator-setup)
 8. [USSD setup](#ussd-setup)
 9. [SMS setup](#sms-setup)
 10. [Payment setup](#payment-setup)
@@ -28,16 +28,16 @@ A Flutter and Firebase laundry marketplace built for Kenya, supporting both form
 ## What is built
 
 **Customer experience**
-Splash and onboarding, account creation with Kenyan phone validation, login, password reset, a dashboard fed by live Firestore streams, provider discovery with working filters and search, full provider profiles with services and reviews, a complete booking flow with dynamically calculated totals, live order tracking on a status timeline, order cancellation, and star ratings with written reviews after completion.
+Splash and onboarding, account creation, login, password reset, a dashboard fed by the API, provider discovery with filters, search and GPS-based nearby sorting, full provider profiles with services and reviews, a complete booking flow with dynamically calculated totals and exact pickup/delivery coordinates, live order tracking, order cancellation, and written reviews after completion. Profile editing includes a photo and GPS location. The help form sends messages to the admin support inbox.
 
 **Provider experience, including Mama Fua / Jua Kali**
-Provider registration capturing provider type, washing method, ironing method, pricing, turnaround and daily capacity. A dashboard with real counts of pending, active and today's jobs plus revenue from completed orders. An availability switch that writes straight to Firestore. Order acceptance, rejection and step by step status advancement, each of which notifies the customer. Full create, edit and delete service management.
+Provider registration capturing provider type, washing method, ironing method, pricing, turnaround and daily capacity. A dashboard with counts of pending, active and today's jobs plus revenue from completed orders. An availability switch writes to the API. Order acceptance, rejection and status advancement update the customer order. Full create, edit and delete service management.
 
 **Administrator console**
 Live platform metrics including a separate count of Mama Fua providers and formal laundry providers, user management with activate, deactivate and delete, provider management with verify, activate, deactivate and delete, and order management with filtering and deletion.
 
 **Backend**
-A USSD state machine that registers users, lists providers, takes a booking and reports order status entirely over a feature phone session. An SMS relay that keeps gateway keys off the handset. A mobile money flow where only the payment provider's own callback can mark a payment paid.
+An active USSD state machine that registers feature-phone customers, lists providers, takes bookings and reports order status. Africa's Talking SMS and Safaricom Daraja STK Push adapters are implemented server-side and become active when configured with valid provider credentials.
 
 ---
 
@@ -75,7 +75,7 @@ Rose gold is deliberately reserved for the Mama Fua badge alone; stars, verifica
 | Server integrations | FastAPI adapters | Holds SMS/mobile-money secrets off the device |
 | Fonts | google_fonts | Playfair Display for headings, Inter for body |
 
-Every dependency in `pubspec.yaml` is used. Notable ones: `equatable` for value comparison in models, `uuid` for order and service identifiers, `intl` for date formatting, `flutter_rating_bar` for the review sheet, `shared_preferences` to remember that onboarding was seen, `cloud_functions` to reach the SMS and payment relays.
+Notable dependencies: `equatable` for value comparison in models, `uuid` for order and service identifiers, `intl` for date formatting, `flutter_rating_bar` for the review sheet, and `shared_preferences` for onboarding and access-token state.
 
 ---
 
@@ -92,15 +92,15 @@ Flutter application  ─────────────┐
                                   ▲
                                   │
  SMS / M-Pesa adapters ───────────┘
-  ussd            ◄── USSD aggregator ◄── feature phone
+  /ussd           ◄── USSD aggregator ◄── feature phone
   sendSms         ──► SMS gateway     ──► customer handset
   initiateMobileMoneyPayment ──► mobile money API
   mpesaCallback   ◄── mobile money API
 ```
 
-The four boxes are deliberately separate. Firebase is not a USSD gateway; the aggregator owns the shortcode and posts each keypress to the `ussd` HTTPS function. Likewise the application never calls an SMS or payment API directly, because that would require shipping a secret key inside the APK.
+The USSD aggregator owns the shortcode and posts each keypress to the FastAPI `/ussd` endpoint. The mobile app communicates with FastAPI; external SMS and payment gateway credentials must remain server-side.
 
-Layering inside the Flutter application: screens depend on Riverpod providers, providers expose repositories and services, repositories are the only code that touches Firestore, and models own all serialisation. No screen builds a Firestore query inline except the admin aggregate views, which read whole collections by design.
+Layering inside the Flutter application: screens depend on Riverpod providers, providers expose repositories and services, repositories communicate with FastAPI, and models own serialization.
 
 ---
 
@@ -109,7 +109,7 @@ Layering inside the Flutter application: screens depend on Riverpod providers, p
 ```
 lib/
   core/
-    constants/      app_enums.dart, firestore_paths.dart
+    constants/      app_enums.dart
     theme/          app_colors.dart, app_text_styles.dart, app_theme.dart
     models/         user, provider, service, order, payment, notification, review
     repositories/   provider, order, notification, review
@@ -124,12 +124,12 @@ lib/
     admin/          shell, dashboard, users, providers, orders
     notifications/  notifications_screen.dart
     profile/        profile_screen.dart
-  firebase_options.dart
   main.dart
 
-functions/src/      ussd.ts, sms.ts, payments.ts, index.ts
-firestore/          firestore.rules, firestore.indexes.json
-tools/              seed.js
+backend/app/main.py FastAPI routes, PostgreSQL models and USSD callback
+legacy_firebase_functions/  previous Firebase Functions implementation
+firestore/          legacy Firebase rules
+tools/              legacy Firebase seed and migration scripts
 android/            AndroidManifest.xml, build.gradle
 ```
 
@@ -137,25 +137,27 @@ android/            AndroidManifest.xml, build.gradle
 
 ## Database design
 
-**users/{userId}** — uid, name, email, phone, role, profileImage, location, latitude, longitude, createdAt, updatedAt, isActive
+**users** — uid, name, email, password_hash, phone, role, profileImage, location, latitude, longitude, createdAt, updatedAt, isActive
 
-**providers/{providerId}** — ownerId, providerName, providerType, washingMethod, ironingMethod, phone, email, description, location, latitude, longitude, profileImage, rating, reviewCount, capacity, workingHours, availability, isVerified, isActive, startingPrice, turnaroundHours, createdAt, updatedAt
+**providers** — id, ownerId, providerName, providerType, washingMethod, ironingMethod, phone, email, description, location, latitude, longitude, profileImage, rating, reviewCount, capacity, workingHours, availability, isVerified, isActive, startingPrice, turnaroundHours, createdAt, updatedAt
 
-The provider document id equals the owner's uid, which lets the security rules check ownership without an extra read.
+The provider id equals the owner's uid.
 
-**providers/{providerId}/services/{serviceId}** — providerId, name, description, price, pricingUnit, isAvailable, createdAt, updatedAt
+**services** — id, providerId, name, description, price, pricingUnit, isAvailable, createdAt, updatedAt
 
-**orders/{orderId}** — customerId, customerName, providerId, providerName, items (array of service lines), washingMethod, ironingMethod, pickupRequested, deliveryRequested, pickupLocation, deliveryLocation, scheduledDate, scheduledTime, totalAmount, paymentMethod, paymentStatus, orderStatus, notes, createdAt, updatedAt
+**orders** — id, customerId, customerName, providerId, providerName, items (JSON array of service lines), washingMethod, ironingMethod, pickupRequested, deliveryRequested, pickupLocation, deliveryLocation (including GPS coordinates), scheduledDate, scheduledTime, totalAmount, paymentMethod, paymentStatus, orderStatus, notes, createdAt, updatedAt
 
-**payments/{paymentId}** — orderId, customerId, providerId, amount, method, status, providerReference, failureReason, createdAt, updatedAt
+**payments** — id, orderId, customerId, providerId, amount, method, status, providerReference, failureReason, createdAt, updatedAt
 
-**notifications/{notificationId}** — userId, title, body, type, relatedOrderId, isRead, createdAt
+**notifications** — id, userId, title, body, type, relatedOrderId, isRead, createdAt
 
-**reviews/{reviewId}** — orderId, customerId, customerName, providerId, rating, comment, createdAt
+**reviews** — id, orderId, customerId, customerName, providerId, rating, comment, createdAt
 
-All dates are stored as Firestore `Timestamp`, amounts as numbers, and flags as booleans. Nothing is stored as a string where a native type fits.
+**support_messages** — id, userId, name, email, subject, message, status, createdAt
 
-Order lifecycle: Pending, Accepted, Scheduled, Picked Up, Washing, Ironing, Ready, Out For Delivery, Completed, with Cancelled as a terminal branch.
+**ussd_sessions** — sessionId, phoneNumber, lastInput, updatedAt
+
+PostgreSQL stores timestamps with timezone information, numeric amounts and booleans in their native column types. The order lifecycle includes pending, accepted, scheduled, picked up, washing, ironing, ready, out for delivery, completed and cancelled.
 
 ---
 
@@ -170,133 +172,76 @@ flutter pub get
 
 ---
 
-## Firebase setup
+## API and administrator setup
 
-1. Create a project at the Firebase console and name it, for example, `laundry-service-kenya`.
-2. Add an Android application with the package name `com.example.laundry_service_app`. Change it in `android/app/build.gradle` first if you prefer your own.
-3. Download `google-services.json` and place it at `android/app/google-services.json`.
-4. Generate the Dart configuration, which overwrites the placeholder file:
+The active app uses FastAPI and PostgreSQL; Firebase is not required. Start the API and database with `docker compose up --build`. SQLAlchemy creates missing tables when the API starts. For production, set a strong `JWT_SECRET` and a private PostgreSQL `DATABASE_URL`.
 
-```bash
-dart pub global activate flutterfire_cli
-flutterfire configure
+Public registration does not allow administrator accounts to be self-created. After registering the intended admin account, connect to PostgreSQL and assign its role:
+
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'admin@example.com';
 ```
 
-5. In the console enable **Authentication → Sign in method → Email and password**.
-6. Create a **Firestore database** in production mode, choosing a region close to Kenya such as `europe-west1`.
-7. Deploy the rules and indexes:
-
-```bash
-firebase login
-firebase use --add            # select your project
-firebase deploy --only firestore:rules,firestore:indexes
-```
-
-8. Create your first administrator. Register normally in the app, then in the Firestore console open that user's document in `users` and change `role` from `customer` to `admin`. The rules deliberately forbid a client from assigning itself the admin role.
-
-Collections are created automatically on first write; there is no manual collection setup step.
-
-**Values you must supply yourself:** the contents of `google-services.json`, and the five fields in `lib/firebase_options.dart` (apiKey, appId, messagingSenderId, projectId, storageBucket). `flutterfire configure` fills the second one in for you.
+The admin account can then review messages in the Support Inbox.
 
 ---
 
 ## USSD setup
 
-The USSD handler is `functions/src/ussd.ts`, deployed as an HTTPS endpoint.
+The USSD state machine is served at `POST /ussd` and follows Africa's Talking's form-encoded `sessionId`, `serviceCode`, `phoneNumber`, and accumulated `text` protocol. Configure the aggregator to post to `https://YOUR-API-HOST/ussd?token=YOUR_USSD_CALLBACK_TOKEN`; set the same high-entropy `USSD_CALLBACK_TOKEN` in the backend environment. The callback implements the menus, but telecom/aggregator provisioning of a shortcode and registration of this callback URL are external requirements; this repository cannot provision a shortcode.
+
+The menu supports provider discovery, registration, booking, recent orders and order-status lookup. USSD mobile-money bookings start an STK Push to the caller's phone and remain unpaid until Daraja confirms payment.
+
+To display the provisioned shortcode in the app's help screen, pass it when building the Android release:
 
 ```bash
-cd functions
-npm install
-npm run build
-firebase deploy --only functions:ussd
+flutter build apk --release --dart-define=API_BASE_URL=https://YOUR-API-HOST --dart-define=USSD_SHORTCODE=*384*1234#
 ```
-
-Then, with your aggregator (Africa's Talking, or a Safaricom approved aggregator):
-
-1. Apply for a USSD shortcode, for example `*384*1234#`. This is a commercial arrangement with the telecom and takes days to weeks; there is no way to shortcut it.
-2. In the aggregator dashboard, set the callback URL to the deployed function:
-   `https://YOUR_REGION-YOUR_PROJECT.cloudfunctions.net/ussd`
-3. Test with the aggregator's simulator before going live.
-
-**Values you must supply:** the shortcode itself, and the callback URL registration. No API key is needed for inbound USSD, because the aggregator calls you.
-
-Menu served by the handler:
-
-```
-Welcome to Laundry Service
-1. Find Laundry
-2. Book Service
-3. My Orders
-4. Check Order Status
-5. Register
-6. Help
-```
-
-Option 2 walks the caller through provider, service, quantity, pickup location and payment method, then writes a real order document with `channel: "ussd"` and notifies the provider.
-
----
 
 ## SMS setup
 
-```bash
-firebase functions:config:set \
-  sms.username="YOUR_AFRICASTALKING_USERNAME" \
-  sms.api_key="YOUR_AFRICASTALKING_API_KEY" \
-  sms.sender_id="YOUR_APPROVED_SENDER_ID"
+The FastAPI backend sends SMS through Africa's Talking. Set these server-side environment variables (Render's deploy configuration or the local `.env` file):
 
-firebase deploy --only functions:sendSms
-```
+| Variable | Required | Description |
+|---|---|---|
+| `AT_USERNAME` | Yes | Africa's Talking account username (`sandbox` for sandbox) |
+| `AT_API_KEY` | Yes | API key from the Africa's Talking dashboard |
+| `AT_SENDER_ID` | No | Approved sender ID; omit to use the account's default |
+| `AT_SMS_URL` | No | Override the default Africa's Talking messaging endpoint |
 
-**Values you must supply:** username, API key and an approved sender id from your SMS provider.
-
-Until you configure these, `SmsService` logs a warning and returns false rather than throwing. That is deliberate: a customer's order must still be placed successfully even if the notification channel is not live yet.
-
----
+For local development, copy `.env.example` to `.env` and add sandbox credentials before `docker compose up --build`. SMS requests are sent only to the authenticated user's own registered Kenyan phone number (admins may send to another number). The API returns HTTP 503 when the gateway is unconfigured or unavailable; a successful response means the provider accepted or queued the SMS, not that the handset has received it. Check the Africa's Talking delivery reports for final delivery status.
 
 ## Payment setup
 
-```bash
-firebase functions:config:set \
-  mpesa.consumer_key="YOUR_CONSUMER_KEY" \
-  mpesa.consumer_secret="YOUR_CONSUMER_SECRET" \
-  mpesa.passkey="YOUR_PASSKEY" \
-  mpesa.shortcode="YOUR_SHORTCODE" \
-  mpesa.env="sandbox" \
-  mpesa.callback_url="https://YOUR_REGION-YOUR_PROJECT.cloudfunctions.net/mpesaCallback"
+Mobile-money checkout uses Safaricom Daraja STK Push. The customer is prompted on their handset, and an order is marked paid only after the authenticated Daraja callback confirms the payment and the amount matches the order. The app cannot set a payment to paid. Cash-on-delivery is recorded by the assigned provider when cash is collected.
 
-firebase deploy --only functions:initiateMobileMoneyPayment,functions:mpesaCallback
-```
+Configure these backend environment variables:
 
-**Values you must supply:** consumer key, consumer secret, passkey and shortcode from your payment provider's developer portal, plus the deployed callback URL registered back with them.
+| Variable | Required | Description |
+|---|---|---|
+| `MPESA_ENV` | Yes | `sandbox` for testing, `production` for live payments |
+| `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET` | Yes | Daraja app credentials |
+| `MPESA_SHORTCODE`, `MPESA_PASSKEY` | Yes | Provisioned Paybill/Till shortcode and STK passkey |
+| `MPESA_CALLBACK_URL` | Yes | Public HTTPS URL ending in `/api/payments/mpesa/callback` |
+| `MPESA_CALLBACK_TOKEN` | Yes | Long random secret; the backend appends it to the callback URL and verifies it |
+| `MPESA_TRANSACTION_TYPE` | Yes | `CustomerPayBillOnline` (default) or `CustomerBuyGoodsOnline` |
+| `MPESA_PARTY_B` | No | Till/Paybill destination; defaults to `MPESA_SHORTCODE` |
 
-A payment is only ever marked `paid` inside `mpesaCallback`, using the Admin SDK. The Firestore rules forbid any client from writing that status. Cash on delivery is settled when the provider marks the order completed.
+Safaricom must provision the shortcode and Daraja app for the selected environment. The callback URL must be publicly reachable over HTTPS; for sandbox testing use a temporary HTTPS tunnel to the local API and configure that exact URL in `.env`. Use real production credentials and the live shortcode only after completing Safaricom's approval process. Never put gateway secrets in the Flutter app or commit them. The administrator-only `GET /api/integrations/status` endpoint reports whether the backend has the required SMS and payment settings without exposing credential values.
+
+Copy `.env.example` to `.env` for local Compose runs. Render's deployment configuration prompts for gateway credentials. Configure these values in the hosting provider's secret manager, not in source control.
+
+For an Android release build, point the app to the deployed HTTPS backend, for example `flutter build apk --release --dart-define=API_BASE_URL=https://YOUR-API-HOST`. Android Internet permission is included. Debug builds allow cleartext HTTP for the local emulator backend at `10.0.2.2:8000`; release builds should use HTTPS.
 
 ---
 
 ## Security
 
-`firestore/firestore.rules` enforces, among other things:
-
-- A user may read and update only their own profile, and may never set `role` to `admin`.
-- Provider profiles are publicly readable so discovery works for signed out browsing, but only the owner may edit them, and only an admin may set `isVerified`.
-- A provider cannot write their own `rating` or `reviewCount`; those are derived from the reviews collection.
-- A customer creating an order must set `orderStatus` and `paymentStatus` to `pending`, so neither can be forged.
-- A provider may change only `orderStatus`, `paymentStatus` and `updatedAt` on orders assigned to them.
-- A customer may only cancel an order, and only while it is still pending.
-- A review may be created only by the customer who owns that order, and only when the order is completed. The repository additionally rejects duplicates so the user sees a clear message rather than a permission error.
-- USSD session records are writable only by the Admin SDK.
-
-There is no `allow read, write: if true` anywhere.
-
-Test the rules locally before deploying:
-
-```bash
-firebase emulators:start --only firestore
-```
+The API uses bearer JWTs for authenticated routes and checks roles for administrator operations such as support inbox access. Configure a strong `JWT_SECRET`, serve the API over HTTPS and restrict database access in production. Review API route permissions before exposing a deployment to real customers.
 
 ---
 
-## Seed data
+## Legacy Firebase seed data
 
 ```bash
 cd tools
@@ -306,7 +251,7 @@ node seed.js            # write the sample data
 node seed.js --clear    # remove it again
 ```
 
-Creates one formal laundry provider, one Mama Fua provider, their service catalogs, one customer and one order. Every document carries `seedData: true`, and the script lives outside `lib/` so nothing it creates is ever compiled into the APK.
+This script seeds the previous Firebase implementation only. It does not seed the active PostgreSQL database.
 
 ---
 
@@ -343,9 +288,7 @@ The Blueprint uses Render's free plans, which are suitable for trying the app wi
 
 ## Testing checklist
 
-Work through these on a real device or emulator after connecting Firebase:
-
-Registration as customer, registration as provider, login, logout, password reset email, splash and onboarding sequence, customer dashboard loading live providers, discovery filters by provider type and washing method, search by name and location, provider details with services and reviews, booking with dynamic total, validation blocking an empty booking, order appearing in My Orders, provider seeing the new order, accept, reject, each status advancement, customer timeline updating live without a restart, cancellation while pending, service create, service edit, service delete with confirmation, notification list, mark as read, swipe to delete, clear all, review submission after completion, duplicate review blocked, provider rating recalculated, profile edit, admin counts matching reality, admin verify and deactivate a provider, admin delete with confirmation, role separation (sign in as a customer and try to open `/admin`), airplane mode behaviour, and finally `flutter build apk --release`.
+Test with the API and PostgreSQL running: customer/provider registration and login, provider discovery and filters, GPS permission and nearby sorting, GPS pickup/delivery coordinates, booking and order tracking, provider order/service management, notifications, reviews, profile edits/photo updates, Help and Support submission and admin triage, role separation, USSD simulator menu/booking/status flows, and finally `flutter build apk --release`.
 
 ---
 
@@ -388,10 +331,8 @@ flutter build appbundle --release   # for the Play Store
 
 I would rather you know exactly where the edges are than discover them mid demonstration.
 
-**Fully implemented and working once Firebase is connected:** authentication and role routing, the theme system, provider registration, provider discovery with filters and search, provider details, the booking flow with dynamic pricing, order creation, the full order lifecycle with provider driven status changes, live order tracking, order cancellation, service create, edit and delete, notifications including delete and clear, reviews with rating recalculation and duplicate prevention, the provider dashboard metrics, the admin dashboard, admin user, provider and order management, the Firestore rules, the USSD state machine, and the SMS and payment relays.
+**Implemented in the current FastAPI app:** authentication and role routing, provider registration/discovery, GPS capture and nearby sorting, booking with GPS pickup/delivery coordinates, order status and cancellation, service management, notifications, reviews, provider/admin dashboards, profile edits and photo updates, and admin support-message triage. The active FastAPI USSD state machine is at `/ussd`.
 
-**Implemented as a correct integration point awaiting your credentials:** SMS delivery (needs a gateway account), mobile money (needs a payment provider account and a registered callback), and USSD (needs a shortcode from a telecom aggregator). In each case the code path is real and the credentials are the only missing piece, which is the honest state of any application that talks to these systems.
+**Requires external configuration:** a shortcode and aggregator callback registration, Africa's Talking credentials/sender ID approval, and Safaricom Daraja credentials plus a provisioned shortcode. The SMS and payment adapters are implemented, but live delivery and charges cannot be activated without those third-party accounts and configuration. The app stores compressed profile photos in PostgreSQL as data URIs and should move to object storage for production-scale usage. Provider-to-customer chat and admin reports are not included.
 
-**Present but minimal, and the first places I would extend:** the settings list rows in the profile screen are navigational placeholders rather than full settings screens; provider to customer messaging is not built; the location service is structured through latitude and longitude fields on providers and orders but device location capture and distance sorting are not wired to `geolocator` yet; and admin reports beyond the dashboard counts are not built. I have not written unit or widget tests.
-
-I have reviewed the imports and dependencies for consistency, but I have not been able to run `flutter analyze` or compile this in a Flutter toolchain, so expect to fix a small number of compile errors on first build rather than zero.
+The legacy Firebase implementation remains in the repository but is not used by the active app.

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_enums.dart';
 import '../../../core/models/provider_model.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/services/location_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/app_widgets.dart';
@@ -12,25 +13,64 @@ class ProviderDiscoveryScreen extends ConsumerStatefulWidget {
   const ProviderDiscoveryScreen({super.key});
 
   @override
-  ConsumerState<ProviderDiscoveryScreen> createState() => _ProviderDiscoveryScreenState();
+  ConsumerState<ProviderDiscoveryScreen> createState() =>
+      _ProviderDiscoveryScreenState();
 }
 
-class _ProviderDiscoveryScreenState extends ConsumerState<ProviderDiscoveryScreen> {
+class _ProviderDiscoveryScreenState
+    extends ConsumerState<ProviderDiscoveryScreen> {
   ProviderType? _providerType;
   WashingMethod? _washingMethod;
   IroningMethod? _ironingMethod;
   final _searchController = TextEditingController();
   String _query = '';
+  bool _nearbyEnabled = false;
+
+  Future<void> _useCurrentLocation() async {
+    try {
+      final position = await LocationService().currentPosition();
+      final user = ref.read(currentUserProvider).valueOrNull;
+      if (user == null) {
+        throw StateError('Sign in before saving your location.');
+      }
+      await ref.read(authServiceProvider).updateProfile(
+            name: user.name,
+            phone: user.phone,
+            location: LocationService().describe(position),
+            latitude: position.latitude,
+            longitude: position.longitude,
+          );
+      if (mounted) setState(() => _nearbyEnabled = true);
+    } catch (error) {
+      if (mounted) {
+        showErrorSnackBar(
+          context,
+          error is StateError
+              ? error.message.toString()
+              : 'Unable to read your location. Check your phone settings and try again.',
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final repo = ref.watch(providerRepositoryProvider);
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    final nearLatitude = _nearbyEnabled ? user?.latitude : null;
+    final nearLongitude = _nearbyEnabled ? user?.longitude : null;
     final stream = _query.trim().isNotEmpty
-        ? repo.searchProviders(_query.trim())
+        ? repo.searchProviders(
+            _query.trim(),
+            nearLatitude: nearLatitude,
+            nearLongitude: nearLongitude,
+          )
         : repo.discoverProviders(
             providerType: _providerType,
             washingMethod: _washingMethod,
             ironingMethod: _ironingMethod,
+            nearLatitude: nearLatitude,
+            nearLongitude: nearLongitude,
           );
 
     return Scaffold(
@@ -54,6 +94,28 @@ class _ProviderDiscoveryScreenState extends ConsumerState<ProviderDiscoveryScree
               ),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _useCurrentLocation,
+                    icon: const Icon(Icons.my_location),
+                    label: Text(_nearbyEnabled
+                        ? 'Refresh my location'
+                        : 'Use my exact location'),
+                  ),
+                ),
+                if (_nearbyEnabled)
+                  IconButton(
+                    tooltip: 'Show all locations',
+                    onPressed: () => setState(() => _nearbyEnabled = false),
+                    icon: const Icon(Icons.close),
+                  ),
+              ],
+            ),
+          ),
           const SizedBox(height: 12),
           SizedBox(
             height: 40,
@@ -69,27 +131,31 @@ class _ProviderDiscoveryScreenState extends ConsumerState<ProviderDiscoveryScree
                 _FilterChip(
                   label: ProviderType.formalLaundry.label,
                   selected: _providerType == ProviderType.formalLaundry,
-                  onTap: () => setState(() => _providerType = ProviderType.formalLaundry),
+                  onTap: () => setState(
+                      () => _providerType = ProviderType.formalLaundry),
                 ),
                 _FilterChip(
                   label: ProviderType.mamaFua.label,
                   selected: _providerType == ProviderType.mamaFua,
-                  onTap: () => setState(() => _providerType = ProviderType.mamaFua),
+                  onTap: () =>
+                      setState(() => _providerType = ProviderType.mamaFua),
                 ),
                 const SizedBox(width: 10),
                 _FilterChip(
                   label: WashingMethod.machineWashing.label,
                   selected: _washingMethod == WashingMethod.machineWashing,
                   onTap: () => setState(() => _washingMethod =
-                      _washingMethod == WashingMethod.machineWashing ? null : WashingMethod.machineWashing),
+                      _washingMethod == WashingMethod.machineWashing
+                          ? null
+                          : WashingMethod.machineWashing),
                 ),
                 _FilterChip(
                   label: WashingMethod.manualHandWashing.label,
                   selected: _washingMethod == WashingMethod.manualHandWashing,
-                  onTap: () => setState(() => _washingMethod = _washingMethod ==
-                          WashingMethod.manualHandWashing
-                      ? null
-                      : WashingMethod.manualHandWashing),
+                  onTap: () => setState(() => _washingMethod =
+                      _washingMethod == WashingMethod.manualHandWashing
+                          ? null
+                          : WashingMethod.manualHandWashing),
                 ),
               ],
             ),
@@ -122,7 +188,8 @@ class _ProviderDiscoveryScreenState extends ConsumerState<ProviderDiscoveryScree
                     childAspectRatio: 0.72,
                   ),
                   itemCount: providers.length,
-                  itemBuilder: (context, i) => ProviderCard(provider: providers[i]),
+                  itemBuilder: (context, i) =>
+                      ProviderCard(provider: providers[i]),
                 );
               },
             ),
@@ -134,7 +201,8 @@ class _ProviderDiscoveryScreenState extends ConsumerState<ProviderDiscoveryScree
 }
 
 class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, required this.selected, required this.onTap});
+  const _FilterChip(
+      {required this.label, required this.selected, required this.onTap});
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -147,7 +215,8 @@ class _FilterChip extends StatelessWidget {
         label: Text(label),
         selected: selected,
         onSelected: (_) => onTap(),
-        labelStyle: AppTextStyles.bodySmall(color: selected ? AppColors.white : AppColors.textMuted),
+        labelStyle: AppTextStyles.bodySmall(
+            color: selected ? AppColors.white : AppColors.textMuted),
       ),
     );
   }

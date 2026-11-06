@@ -32,7 +32,8 @@ class _ProviderShellState extends ConsumerState<ProviderShell> {
       stream: providerRepo.watchProvider(user.uid),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
         }
         final provider = snapshot.data;
         if (provider == null) {
@@ -56,11 +57,17 @@ class _ProviderShellState extends ConsumerState<ProviderShell> {
             currentIndex: _index,
             onTap: (i) => setState(() => _index = i),
             items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Dashboard'),
-              BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: 'Orders'),
-              BottomNavigationBarItem(icon: Icon(Icons.cleaning_services_rounded), label: 'Services'),
-              BottomNavigationBarItem(icon: Icon(Icons.notifications_rounded), label: 'Notifications'),
-              BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.dashboard_rounded), label: 'Home'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.receipt_long_rounded), label: 'Orders'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.cleaning_services_rounded),
+                  label: 'Services'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.notifications_rounded), label: 'Alerts'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.person_rounded), label: 'Profile'),
             ],
           ),
         );

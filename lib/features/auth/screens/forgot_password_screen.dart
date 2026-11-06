@@ -9,7 +9,8 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
@@ -36,26 +37,30 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const PinkAppBar(title: 'Reset Password', subtitle: 'We will email you a reset link'),
+      appBar: const PinkAppBar(
+          title: 'Reset Password', subtitle: 'We will email you a reset link'),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: _sent
               ? EmptyStateView(
                   icon: Icons.mark_email_read_rounded,
                   title: 'Check Your Email',
-                  message: 'We sent a password reset link to ${_emailController.text.trim()}',
+                  message:
+                      'We sent a password reset link to ${_emailController.text.trim()}',
                 )
               : Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Forgot Your Password?', style: AppTextStyles.heading2()),
+                      Text('Forgot Your Password?',
+                          style: AppTextStyles.heading2()),
                       const SizedBox(height: 8),
                       Text(
                         'Enter the email address linked to your account and we will send you a reset link.',
-                        style: AppTextStyles.bodyMedium(color: AppColors.textMuted),
+                        style: AppTextStyles.bodyMedium(
+                            color: AppColors.textMuted),
                       ),
                       const SizedBox(height: 28),
                       TextFormField(
@@ -66,13 +71,19 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                           prefixIcon: Icon(Icons.email_outlined),
                         ),
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Email is required';
+                          if (v == null || v.trim().isEmpty)
+                            return 'Email is required';
                           final regex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-                          return regex.hasMatch(v.trim()) ? null : 'Enter a valid email address';
+                          return regex.hasMatch(v.trim())
+                              ? null
+                              : 'Enter a valid email address';
                         },
                       ),
                       const SizedBox(height: 24),
-                      PremiumButton(label: 'Send Reset Link', isLoading: _isLoading, onPressed: _submit),
+                      PremiumButton(
+                          label: 'Send Reset Link',
+                          isLoading: _isLoading,
+                          onPressed: _submit),
                     ],
                   ),
                 ),

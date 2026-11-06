@@ -1,4 +1,4 @@
-import os, uuid, hashlib, math, logging
+import os, uuid, hashlib, math, logging, secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import parse_qs
@@ -11,6 +11,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import create_engine, String, Boolean, DateTime, Float, Integer, Text, ForeignKey, JSON, select, desc, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+from app.integrations import IntegrationError, initiate_mpesa_stk, mpesa_callback_token, mpesa_is_configured, normalise_ke_phone, send_sms, sms_is_configured
 
 DATABASE_URL=os.getenv('DATABASE_URL','postgresql+psycopg://laundry:laundry@localhost:5432/laundry')
 JWT_SECRET=os.getenv('JWT_SECRET','change-this-in-production')
@@ -73,6 +74,15 @@ class ProfileUpdate(BaseModel):
 class SupportRequest(BaseModel):
     subject:str=Field(min_length=3,max_length=200)
     message:str=Field(min_length=10,max_length=10000)
+class PaymentRequest(BaseModel):
+    id:Optional[str]=None
+    orderId:str
+    providerId:str
+    method:str
+    customerPhone:str=''
+class SmsRequest(BaseModel):
+    phone:str
+    message:str=Field(min_length=1,max_length=480)
 @app.get('/api/health')
 def health(): return {'status':'ok','database':'postgresql'}
 @app.post('/api/auth/register')
@@ -231,10 +241,23 @@ def get_order(oid:str,u=Depends(current)):
 @app.post('/api/orders')
 def create_order(body:dict,u=Depends(current)):
     with Session(engine) as db:
-        items=body.get('items',[])
-        if not items:raise HTTPException(400,'An order must contain at least one laundry service.')
-        total=sum(float(i['quantity'])*float(i['unitPrice']) for i in items)
-        x=Order(id=str(uuid.uuid4()),customerId=u.uid,customerName=body.get('customerName',u.name),providerId=body['providerId'],providerName=body['providerName'],items=items,washingMethod=body['washingMethod'],ironingMethod=body['ironingMethod'],pickupRequested=body.get('pickupRequested',True),deliveryRequested=body.get('deliveryRequested',True),pickupLocation=body['pickupLocation'],deliveryLocation=body['deliveryLocation'],scheduledDate=datetime.fromisoformat(body['scheduledDate'].replace('Z','+00:00')),scheduledTime=body['scheduledTime'],totalAmount=total,paymentMethod=body['paymentMethod'],notes=body.get('notes',''));db.add(x);db.commit();db.refresh(x);return public(x)
+        provider=db.get(Provider,body.get('providerId'))
+        if not provider or not provider.isActive:raise HTTPException(404,'Provider not found or unavailable.')
+        if body.get('paymentMethod') not in ('mobileMoney','cashOnDelivery'):raise HTTPException(400,'Unsupported payment method.')
+        requested_items=body.get('items',[])
+        if not requested_items:raise HTTPException(400,'An order must contain at least one laundry service.')
+        items=[]
+        for requested in requested_items:
+            service=db.get(Service,requested.get('serviceId'))
+            if not service or service.providerId!=provider.id or not service.isAvailable:raise HTTPException(400,'An order contains an unavailable service.')
+            try:quantity=float(requested.get('quantity',0))
+            except (TypeError,ValueError):quantity=0
+            if not math.isfinite(quantity) or quantity<=0:raise HTTPException(400,'Service quantity must be greater than zero.')
+            if not math.isfinite(service.price) or service.price<0:raise HTTPException(400,'Service has an invalid price.')
+            items.append({'serviceId':service.id,'serviceName':service.name,'quantity':quantity,'pricingUnit':service.pricingUnit,'unitPrice':service.price})
+        total=sum(item['quantity']*item['unitPrice'] for item in items)
+        if not math.isfinite(total) or total<=0:raise HTTPException(400,'Order total must be greater than zero.')
+        x=Order(id=str(uuid.uuid4()),customerId=u.uid,customerName=u.name,providerId=provider.id,providerName=provider.providerName,items=items,washingMethod=body['washingMethod'],ironingMethod=body['ironingMethod'],pickupRequested=body.get('pickupRequested',True),deliveryRequested=body.get('deliveryRequested',True),pickupLocation=body['pickupLocation'],deliveryLocation=body['deliveryLocation'],scheduledDate=datetime.fromisoformat(body['scheduledDate'].replace('Z','+00:00')),scheduledTime=body['scheduledTime'],totalAmount=total,paymentMethod=body['paymentMethod'],notes=body.get('notes',''));db.add(x);db.commit();db.refresh(x);return public(x)
 @app.put('/api/orders/{oid}/status')
 def status(oid:str,body:dict,u=Depends(current)):
     with Session(engine) as db:
@@ -244,11 +267,15 @@ def status(oid:str,body:dict,u=Depends(current)):
         x.orderStatus=body['status'];x.updatedAt=now();db.commit();return public(x)
 @app.put('/api/orders/{oid}/payment-status')
 def payment_status(oid:str,body:dict,u=Depends(current)):
+    if u.role!='admin':raise HTTPException(403,'Only an administrator can reconcile payment status.')
+    if body.get('status') not in ('pending','paid','failed','cancelled'):raise HTTPException(400,'Invalid payment status.')
     with Session(engine) as db:
         x=db.get(Order,oid)
         if not x:raise HTTPException(404,'Order not found')
-        if u.role!='admin' and x.customerId!=u.uid and x.providerId!=u.uid:raise HTTPException(403,'Not allowed')
-        x.paymentStatus=body['status'];x.updatedAt=now();db.commit();return public(x)
+        x.paymentStatus=body['status'];x.updatedAt=now()
+        for payment in db.scalars(select(Payment).where(Payment.orderId==oid)):
+            payment.status=body['status'];payment.updatedAt=now()
+        db.commit();return public(x)
 @app.delete('/api/orders/{oid}')
 def delete_order(oid:str,u=Depends(current)):
     with Session(engine) as db:
@@ -297,25 +324,129 @@ def delete_review(rid:str,u=Depends(current)):
     with Session(engine) as db:x=db.get(Review,rid); 
     return {'success':True}
 @app.post('/api/payments')
-def create_payment(body:dict,u=Depends(current)):
+def create_payment(body:PaymentRequest,u=Depends(current)):
+    if body.method not in ('mobileMoney','cashOnDelivery'):
+        raise HTTPException(400,'Unsupported payment method.')
     with Session(engine) as db:
-        x=Payment(id=body.get('id',str(uuid.uuid4())),orderId=body['orderId'],customerId=u.uid,providerId=body['providerId'],amount=body['amount'],method=body['method']);db.add(x);db.commit();db.refresh(x);return public(x)
+        order=db.get(Order,body.orderId)
+        if not order:raise HTTPException(404,'Order not found')
+        if order.customerId!=u.uid:raise HTTPException(403,'Only the customer who placed the order can pay for it.')
+        if order.providerId!=body.providerId:raise HTTPException(400,'The provider does not match this order.')
+        if order.paymentMethod!=body.method:raise HTTPException(400,'The payment method does not match this order.')
+        pending=db.scalar(select(Payment).where(Payment.orderId==order.id,Payment.status=='pending'))
+        if pending:return public(pending)
+        payment_id=body.id or str(uuid.uuid4())
+        existing=db.get(Payment,payment_id)
+        if existing:
+            if existing.customerId!=u.uid:raise HTTPException(409,'Payment reference is already in use.')
+            return public(existing)
+        if order.paymentStatus=='paid':raise HTTPException(409,'This order has already been paid.')
+        x=Payment(id=payment_id,orderId=order.id,customerId=u.uid,providerId=order.providerId,amount=order.totalAmount,method=body.method)
+        db.add(x)
+        db.commit()
+        if body.method=='mobileMoney':
+            try:
+                phone=normalise_ke_phone(body.customerPhone or u.phone)
+                checkout_id,_=initiate_mpesa_stk(phone,x.amount,x.id)
+            except (IntegrationError,ValueError) as error:
+                x.status='failed';x.failureReason=str(error);x.updatedAt=now()
+                order.paymentStatus='failed';order.updatedAt=now()
+                db.commit()
+                raise HTTPException(503,str(error)) from error
+            x.providerReference=checkout_id;x.updatedAt=now()
+        order.paymentStatus='pending';order.updatedAt=now()
+        db.commit();db.refresh(x);return public(x)
 @app.get('/api/payments/{pid}')
 def payment(pid:str,u=Depends(current)):
-    with Session(engine) as db:x=db.get(Payment,pid);return public(x) if x else (_ for _ in ()).throw(HTTPException(404,'Payment not found'))
+    with Session(engine) as db:
+        x=db.get(Payment,pid)
+        if not x:raise HTTPException(404,'Payment not found')
+        if u.role!='admin' and x.customerId!=u.uid and x.providerId!=u.uid:raise HTTPException(403,'Not allowed')
+        return public(x)
 @app.get('/api/payments')
 def payments(order_id:Optional[str]=None,u=Depends(current)):
     with Session(engine) as db:
-        q=select(Payment); 
+        q=select(Payment)
+        if u.role!='admin':
+            q=q.where(Payment.providerId==u.uid if u.role=='provider' else Payment.customerId==u.uid)
         if order_id:q=q.where(Payment.orderId==order_id)
         return [public(x) for x in db.scalars(q)]
 @app.put('/api/payments/{pid}/cash-collected')
 def cash_collected(pid:str,u=Depends(current)):
-    with Session(engine) as db:x=db.get(Payment,pid);x.status='paid';x.updatedAt=now();db.commit();return public(x)
+    with Session(engine) as db:
+        x=db.get(Payment,pid)
+        if not x:raise HTTPException(404,'Payment not found')
+        order=db.get(Order,x.orderId)
+        if not order:raise HTTPException(404,'Order not found')
+        if x.method!='cashOnDelivery' or order.paymentMethod!='cashOnDelivery':raise HTTPException(400,'This is not a cash-on-delivery payment.')
+        if u.role!='admin' and (u.role!='provider' or order.providerId!=u.uid):raise HTTPException(403,'Only the assigned provider can record cash collection.')
+        x.status='paid';x.updatedAt=now();order.paymentStatus='paid';order.updatedAt=now()
+        db.commit();db.refresh(x);return public(x)
+@app.post('/api/payments/mpesa/callback')
+async def mpesa_callback(request:Request):
+    expected=mpesa_callback_token()
+    supplied=request.query_params.get('token','')
+    if not expected or not secrets.compare_digest(supplied,expected):
+        raise HTTPException(403,'Invalid payment callback token.')
+    try:payload=await request.json()
+    except ValueError as error:raise HTTPException(400,'Malformed payment callback.') from error
+    if not isinstance(payload,dict):raise HTTPException(400,'Malformed payment callback.')
+    callback_body=payload.get('Body')
+    callback=callback_body.get('stkCallback') if isinstance(callback_body,dict) else None
+    if not isinstance(callback,dict) or not callback.get('CheckoutRequestID'):
+        raise HTTPException(400,'Malformed payment callback.')
+    checkout_id=callback['CheckoutRequestID']
+    try: result_code=int(callback.get('ResultCode'))
+    except (TypeError,ValueError):raise HTTPException(400,'Malformed payment result.')
+    with Session(engine) as db:
+        payment=db.scalar(select(Payment).where(Payment.providerReference==checkout_id))
+        if not payment:return {'ResultCode':0,'ResultDesc':'Accepted'}
+        if payment.status!='pending':return {'ResultCode':0,'ResultDesc':'Accepted'}
+        order=db.get(Order,payment.orderId)
+        if result_code==0:
+            metadata_container=callback.get('CallbackMetadata')
+            items=metadata_container.get('Item',[]) if isinstance(metadata_container,dict) else []
+            if not isinstance(items,list):items=[]
+            metadata={item.get('Name'):item.get('Value') for item in items if isinstance(item,dict)}
+            try:paid_amount=round(float(metadata.get('Amount')))
+            except (TypeError,ValueError):paid_amount=-1
+            if paid_amount!=round(payment.amount):
+                payment.status='failed';payment.failureReason='Payment amount did not match the order.'
+                if order:order.paymentStatus='failed';order.updatedAt=now()
+                logging.error('M-Pesa callback amount mismatch for payment %s',payment.id)
+            else:
+                payment.status='paid';payment.failureReason=None
+                payment.providerReference=str(metadata.get('MpesaReceiptNumber') or checkout_id)
+                if order:
+                    order.paymentStatus='paid';order.updatedAt=now()
+                    db.add(Notification(id=str(uuid.uuid4()),userId=payment.customerId,title='Payment Confirmed',body=f'Your payment of KES {payment.amount:.0f} has been received.',type='paymentConfirmation',relatedOrderId=payment.orderId))
+        else:
+            payment.status='failed'
+            payment.failureReason=str(callback.get('ResultDesc') or 'The payment was not completed.')[:1000]
+            if order:order.paymentStatus='failed';order.updatedAt=now()
+        payment.updatedAt=now()
+        db.commit()
+    return {'ResultCode':0,'ResultDesc':'Accepted'}
 @app.post('/api/notifications/sms')
-def sms(body:dict,u=Depends(current)):
-    # Gateway adapter hook: configure SMS_PROVIDER_URL/API credentials in production.
-    return {'success':False,'detail':'SMS gateway is not configured. Configure it in the FastAPI environment.'}
+def sms(body:SmsRequest,u=Depends(current)):
+    try:
+        recipient=normalise_ke_phone(body.phone)
+        if u.role!='admin' and recipient!=normalise_ke_phone(u.phone):
+            raise HTTPException(403,'You can only send messages to your own verified account phone.')
+        return send_sms(recipient,body.message)
+    except ValueError as error:
+        raise HTTPException(400,str(error)) from error
+    except IntegrationError as error:
+        raise HTTPException(503,str(error)) from error
+
+@app.get('/api/integrations/status')
+def integration_status(u=Depends(current)):
+    if u.role!='admin':raise HTTPException(403,'Admin access required')
+    return {
+        'sms':{'provider':'africas_talking','configured':sms_is_configured()},
+        'mobileMoney':{'provider':'safaricom_daraja','configured':mpesa_is_configured()},
+        'ussd':{'callbackAuthenticationEnabled':bool(os.getenv('USSD_CALLBACK_TOKEN'))},
+    }
 
 def _normalise_phone(raw:str)->str:
     digits=''.join(c for c in raw if c.isdigit())
@@ -329,6 +460,9 @@ def _ussd_reply(message:str,continue_session:bool=True)->PlainTextResponse:
 async def ussd(request:Request):
     """Africa's Talking-compatible callback; text carries the accumulated menu choices."""
     try:
+        ussd_token=os.getenv('USSD_CALLBACK_TOKEN')
+        if ussd_token and not secrets.compare_digest(request.query_params.get('token',''),ussd_token):
+            raise HTTPException(403,'Invalid USSD callback token.')
         body=await request.body()
         fields=parse_qs(body.decode('utf-8'),keep_blank_values=True)
         session_id=(fields.get('sessionId') or [''])[0].strip()
@@ -393,7 +527,19 @@ async def ussd(request:Request):
                 order=Order(id=str(uuid.uuid4()),customerId=user.uid,customerName=user.name,providerId=provider.id,providerName=provider.providerName,items=[{'serviceId':service.id,'serviceName':service.name,'quantity':quantity,'pricingUnit':service.pricingUnit,'unitPrice':service.price}],washingMethod=provider.washingMethod,ironingMethod=provider.ironingMethod,pickupRequested=True,deliveryRequested=True,pickupLocation={'label':pickup,'latitude':0,'longitude':0},deliveryLocation={'label':pickup,'latitude':0,'longitude':0},scheduledDate=now(),scheduledTime='As soon as possible',totalAmount=total,paymentMethod='mobileMoney' if steps[5]=='1' else 'cashOnDelivery',notes='Order placed through USSD')
                 db.add(order)
                 db.add(Notification(id=str(uuid.uuid4()),userId=provider.ownerId,title='New USSD Order',body=f'{user.name} placed a USSD order worth KES {total:.0f}.',type='newOrder',relatedOrderId=order.id))
+                payment=None
+                if steps[5]=='1':
+                    payment=Payment(id=str(uuid.uuid4()),orderId=order.id,customerId=user.uid,providerId=provider.id,amount=total,method='mobileMoney')
+                    db.add(payment)
                 db.commit()
+                if payment is not None:
+                    try:
+                        checkout_id,_=initiate_mpesa_stk(phone,total,payment.id)
+                        payment.providerReference=checkout_id;payment.updatedAt=now();db.commit()
+                    except (IntegrationError,ValueError) as error:
+                        payment.status='failed';payment.failureReason=str(error);payment.updatedAt=now()
+                        order.paymentStatus='failed';order.updatedAt=now();db.commit()
+                        return _ussd_reply(f'Order {order.id[:8].upper()} was created, but the payment prompt could not be started. Contact support with this reference.',False)
                 return _ussd_reply(f'Order confirmed.\nProvider: {provider.providerName}\nTotal: KES {total:.0f}\nReference: {order.id[:8].upper()}',False)
 
             if choice=='3':
@@ -422,6 +568,8 @@ async def ussd(request:Request):
 
             if choice=='6':return _ussd_reply('For help, send a message through Help and Support in the Laundry Service app.',False)
             return _ussd_reply('Invalid choice. Dial again.',False)
+    except HTTPException:
+        raise
     except Exception:
         logging.exception('USSD callback failed')
         return _ussd_reply('The service is temporarily unavailable. Please try again shortly.',False)

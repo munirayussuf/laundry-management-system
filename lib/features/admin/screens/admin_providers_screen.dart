@@ -11,7 +11,8 @@ class AdminProvidersScreen extends ConsumerStatefulWidget {
   const AdminProvidersScreen({super.key});
 
   @override
-  ConsumerState<AdminProvidersScreen> createState() => _AdminProvidersScreenState();
+  ConsumerState<AdminProvidersScreen> createState() =>
+      _AdminProvidersScreenState();
 }
 
 class _AdminProvidersScreenState extends ConsumerState<AdminProvidersScreen> {
@@ -42,7 +43,10 @@ class _AdminProvidersScreenState extends ConsumerState<AdminProvidersScreen> {
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: 40,
+            height: MediaQuery.textScalerOf(context)
+                .scale(48)
+                .clamp(48.0, 96.0)
+                .toDouble(),
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -56,13 +60,15 @@ class _AdminProvidersScreenState extends ConsumerState<AdminProvidersScreen> {
                 ChoiceChip(
                   label: Text(ProviderType.formalLaundry.label),
                   selected: _filter == ProviderType.formalLaundry,
-                  onSelected: (_) => setState(() => _filter = ProviderType.formalLaundry),
+                  onSelected: (_) =>
+                      setState(() => _filter = ProviderType.formalLaundry),
                 ),
                 const SizedBox(width: 8),
                 ChoiceChip(
                   label: Text(ProviderType.mamaFua.label),
                   selected: _filter == ProviderType.mamaFua,
-                  onSelected: (_) => setState(() => _filter = ProviderType.mamaFua),
+                  onSelected: (_) =>
+                      setState(() => _filter = ProviderType.mamaFua),
                 ),
               ],
             ),
@@ -71,17 +77,21 @@ class _AdminProvidersScreenState extends ConsumerState<AdminProvidersScreen> {
           Expanded(
             child: StreamBuilder<List<ProviderModel>>(
               // Admins see inactive providers too, so onlyActive is false.
-              stream: repo.discoverProviders(providerType: _filter, onlyActive: false),
+              stream: repo.discoverProviders(
+                  providerType: _filter, onlyActive: false),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 final providers = (snapshot.data ?? [])
-                    .where((p) => _query.isEmpty || p.providerName.toLowerCase().contains(_query))
+                    .where((p) =>
+                        _query.isEmpty ||
+                        p.providerName.toLowerCase().contains(_query))
                     .toList();
                 if (providers.isEmpty) {
                   return const EmptyStateView(
-                      icon: Icons.storefront_outlined, title: 'No Providers Found');
+                      icon: Icons.storefront_outlined,
+                      title: 'No Providers Found');
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -97,12 +107,15 @@ class _AdminProvidersScreenState extends ConsumerState<AdminProvidersScreen> {
                           children: [
                             Row(children: [
                               Expanded(
-                                  child: Text(provider.providerName, style: AppTextStyles.bodyLarge())),
+                                  child: Text(provider.providerName,
+                                      style: AppTextStyles.bodyLarge())),
                               if (provider.isVerified)
-                                const Icon(Icons.verified_rounded, color: AppColors.primaryPink, size: 18),
+                                const Icon(Icons.verified_rounded,
+                                    color: AppColors.primaryPink, size: 18),
                             ]),
                             const SizedBox(height: 6),
-                            ProviderTypeBadge(type: provider.providerType, compact: true),
+                            ProviderTypeBadge(
+                                type: provider.providerType, compact: true),
                             const SizedBox(height: 6),
                             Text('${provider.location} · ${provider.phone}',
                                 style: AppTextStyles.bodySmall()),
@@ -112,7 +125,8 @@ class _AdminProvidersScreenState extends ConsumerState<AdminProvidersScreen> {
                               children: [
                                 TextButton.icon(
                                   onPressed: () async {
-                                    await repo.setVerified(provider.id, !provider.isVerified);
+                                    await repo.setVerified(
+                                        provider.id, !provider.isVerified);
                                     if (context.mounted) {
                                       showSuccessSnackBar(
                                         context,
@@ -122,12 +136,16 @@ class _AdminProvidersScreenState extends ConsumerState<AdminProvidersScreen> {
                                       );
                                     }
                                   },
-                                  icon: const Icon(Icons.verified_outlined, size: 18),
-                                  label: Text(provider.isVerified ? 'Remove Verification' : 'Verify'),
+                                  icon: const Icon(Icons.verified_outlined,
+                                      size: 18),
+                                  label: Text(provider.isVerified
+                                      ? 'Remove Verification'
+                                      : 'Verify'),
                                 ),
                                 TextButton.icon(
                                   onPressed: () async {
-                                    await repo.setActive(provider.id, !provider.isActive);
+                                    await repo.setActive(
+                                        provider.id, !provider.isActive);
                                     if (context.mounted) {
                                       showSuccessSnackBar(
                                         context,
@@ -138,15 +156,21 @@ class _AdminProvidersScreenState extends ConsumerState<AdminProvidersScreen> {
                                     }
                                   },
                                   icon: Icon(
-                                    provider.isActive ? Icons.pause_circle_outline : Icons.play_circle_outline,
+                                    provider.isActive
+                                        ? Icons.pause_circle_outline
+                                        : Icons.play_circle_outline,
                                     size: 18,
                                   ),
-                                  label: Text(provider.isActive ? 'Deactivate' : 'Activate'),
+                                  label: Text(provider.isActive
+                                      ? 'Deactivate'
+                                      : 'Activate'),
                                 ),
                                 TextButton.icon(
-                                  style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                                  style: TextButton.styleFrom(
+                                      foregroundColor: AppColors.error),
                                   onPressed: () async {
-                                    final confirmed = await showDeleteConfirmationDialog(
+                                    final confirmed =
+                                        await showDeleteConfirmationDialog(
                                       context,
                                       title: 'Delete This Provider',
                                       message:
@@ -155,10 +179,12 @@ class _AdminProvidersScreenState extends ConsumerState<AdminProvidersScreen> {
                                     if (!confirmed) return;
                                     await repo.deleteProvider(provider.id);
                                     if (context.mounted) {
-                                      showSuccessSnackBar(context, 'Provider deleted successfully.');
+                                      showSuccessSnackBar(context,
+                                          'Provider deleted successfully.');
                                     }
                                   },
-                                  icon: const Icon(Icons.delete_outline, size: 18),
+                                  icon: const Icon(Icons.delete_outline,
+                                      size: 18),
                                   label: const Text('Delete'),
                                 ),
                               ],

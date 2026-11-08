@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_enums.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/error_messages.dart';
 
 /// A primary call to action button with a built in loading state so it can
 /// never be pressed twice while a request is in flight.
@@ -34,7 +35,7 @@ class PremiumButton extends StatelessWidget {
             ),
           )
         : Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MainAxisSize.max,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (icon != null) ...[
@@ -43,7 +44,14 @@ class PremiumButton extends StatelessWidget {
                     color: outlined ? AppColors.primaryPink : AppColors.white),
                 const SizedBox(width: 8),
               ],
-              Text(label),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ],
           );
 
@@ -154,7 +162,7 @@ class EmptyStateView extends StatelessWidget {
 
 class ErrorStateView extends StatelessWidget {
   const ErrorStateView({super.key, required this.message, this.onRetry});
-  final String message;
+  final Object message;
   final VoidCallback? onRetry;
 
   @override
@@ -162,9 +170,101 @@ class ErrorStateView extends StatelessWidget {
     return EmptyStateView(
       icon: Icons.wifi_off_rounded,
       title: 'Something went wrong',
-      message: message,
+      message: friendlyErrorMessage(message),
       actionLabel: onRetry != null ? 'Try Again' : null,
       onAction: onRetry,
+    );
+  }
+}
+
+class ResponsiveBottomNavigationBar extends StatelessWidget {
+  const ResponsiveBottomNavigationBar({
+    super.key,
+    required this.currentIndex,
+    required this.onTap,
+    required this.items,
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  final List<BottomNavigationBarItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final labelSize = MediaQuery.textScalerOf(context).scale(12);
+        if (constraints.maxWidth >= items.length * 76 && labelSize <= 14) {
+          return BottomNavigationBar(
+            currentIndex: currentIndex,
+            onTap: onTap,
+            type: BottomNavigationBarType.fixed,
+            items: items,
+          );
+        }
+
+        final itemWidth =
+            (constraints.maxWidth / items.length).clamp(72.0, 112.0);
+        final itemHeight = (labelSize * 3 + 42).clamp(72.0, 200.0);
+        return SafeArea(
+          top: false,
+          child: SizedBox(
+            height: itemHeight,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                final selected = index == currentIndex;
+                return Semantics(
+                  button: true,
+                  selected: selected,
+                  label: item.label,
+                  child: InkWell(
+                    onTap: () => onTap(index),
+                    child: SizedBox(
+                      width: itemWidth,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconTheme(
+                            data: IconThemeData(
+                              size: 22,
+                              color: selected
+                                  ? AppColors.primaryPink
+                                  : AppColors.textMuted,
+                            ),
+                            child: selected ? item.activeIcon : item.icon,
+                          ),
+                          const SizedBox(height: 2),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              item.label ?? '',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: selected
+                                    ? AppColors.primaryPink
+                                    : AppColors.textMuted,
+                                fontWeight: selected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }

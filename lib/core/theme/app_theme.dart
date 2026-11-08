@@ -53,8 +53,9 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryPink,
           foregroundColor: AppColors.white,
-          minimumSize: const Size.fromHeight(54),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(pillRadius)),
+          minimumSize: const Size.fromHeight(48),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(pillRadius)),
           textStyle: AppTextStyles.buttonLabel(),
           elevation: 0,
         ),
@@ -63,9 +64,10 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.primaryPink,
           backgroundColor: AppColors.surface,
-          minimumSize: const Size.fromHeight(54),
+          minimumSize: const Size.fromHeight(48),
           side: const BorderSide(color: AppColors.primaryPink, width: 1.4),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(pillRadius)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(pillRadius)),
           textStyle: AppTextStyles.buttonLabel(color: AppColors.primaryPink),
         ),
       ),
@@ -78,10 +80,12 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surfaceAlt,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         hintStyle: AppTextStyles.bodyMedium(color: AppColors.textMuted),
         labelStyle: AppTextStyles.bodyMedium(color: AppColors.textMuted),
-        floatingLabelStyle: AppTextStyles.bodyMedium(color: AppColors.primaryPink),
+        floatingLabelStyle:
+            AppTextStyles.bodyMedium(color: AppColors.primaryPink),
         prefixIconColor: AppColors.rose,
         suffixIconColor: AppColors.rose,
         border: OutlineInputBorder(
@@ -94,7 +98,8 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
-          borderSide: const BorderSide(color: AppColors.primaryPink, width: 1.6),
+          borderSide:
+              const BorderSide(color: AppColors.primaryPink, width: 1.6),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
@@ -126,7 +131,9 @@ class AppTheme {
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected) ? AppColors.white : AppColors.white,
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.white
+              : AppColors.white,
         ),
         trackColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
@@ -137,22 +144,26 @@ class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius + 4)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radius + 4)),
         titleTextStyle: AppTextStyles.heading3(),
         contentTextStyle: AppTextStyles.bodyMedium(),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.surface,
-        contentTextStyle: AppTextStyles.bodyMedium(color: AppColors.textPrimary),
+        contentTextStyle:
+            AppTextStyles.bodyMedium(color: AppColors.textPrimary),
         behavior: SnackBarBehavior.floating,
         elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
       ),
       listTileTheme: const ListTileThemeData(
         iconColor: AppColors.primaryPink,
         textColor: AppColors.textPrimary,
       ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.primaryPink),
+      progressIndicatorTheme:
+          const ProgressIndicatorThemeData(color: AppColors.primaryPink),
       dividerColor: AppColors.border,
       iconTheme: const IconThemeData(color: AppColors.primaryPink),
       textTheme: base.textTheme.apply(

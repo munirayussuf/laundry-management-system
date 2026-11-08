@@ -37,7 +37,7 @@ class MyOrdersScreen extends ConsumerWidget {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return ErrorStateView(message: snapshot.error.toString());
+                  return ErrorStateView(message: snapshot.error!);
                 }
                 final orders = snapshot.data ?? [];
                 if (orders.isEmpty) {
@@ -46,7 +46,8 @@ class MyOrdersScreen extends ConsumerWidget {
                     title: 'No Orders Yet',
                     message: 'Book your first laundry service to see it here.',
                     actionLabel: 'Find A Provider',
-                    onAction: () => ref.read(customerTabIndexProvider.notifier).state = 1,
+                    onAction: () =>
+                        ref.read(customerTabIndexProvider.notifier).state = 1,
                   );
                 }
                 return ListView.builder(
@@ -57,8 +58,10 @@ class MyOrdersScreen extends ConsumerWidget {
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
-                        onTap: () => context.push('${AppRoutes.customerHome}/order/${order.id}'),
-                        title: Text(order.providerName, style: AppTextStyles.bodyLarge()),
+                        onTap: () => context.push(
+                            '${AppRoutes.customerHome}/order/${order.id}'),
+                        title: Text(order.providerName,
+                            style: AppTextStyles.bodyLarge()),
                         subtitle: Text(
                           '${order.items.length} item(s) · ${DateFormat.yMMMd().format(order.createdAt)}',
                           style: AppTextStyles.bodySmall(),
@@ -69,7 +72,8 @@ class MyOrdersScreen extends ConsumerWidget {
                           children: [
                             OrderStatusBadge(status: order.orderStatus),
                             const SizedBox(height: 4),
-                            Text('KES ${order.totalAmount.toStringAsFixed(0)}', style: AppTextStyles.bodySmall()),
+                            Text('KES ${order.totalAmount.toStringAsFixed(0)}',
+                                style: AppTextStyles.bodySmall()),
                           ],
                         ),
                       ),

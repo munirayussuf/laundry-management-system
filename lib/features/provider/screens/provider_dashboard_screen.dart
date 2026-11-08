@@ -22,11 +22,16 @@ class ProviderDashboardScreen extends ConsumerWidget {
         stream: orderRepo.watchProviderOrders(provider.id),
         builder: (context, snapshot) {
           final orders = snapshot.data ?? [];
-          final pending = orders.where((o) => o.orderStatus == OrderStatus.pending).length;
+          final pending =
+              orders.where((o) => o.orderStatus == OrderStatus.pending).length;
           final active = orders
-              .where((o) => o.orderStatus != OrderStatus.completed && o.orderStatus != OrderStatus.cancelled)
+              .where((o) =>
+                  o.orderStatus != OrderStatus.completed &&
+                  o.orderStatus != OrderStatus.cancelled)
               .length;
-          final completed = orders.where((o) => o.orderStatus == OrderStatus.completed).length;
+          final completed = orders
+              .where((o) => o.orderStatus == OrderStatus.completed)
+              .length;
           final today = DateTime.now();
           final todaysJobs = orders
               .where((o) =>
@@ -47,10 +52,14 @@ class ProviderDashboardScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Welcome', style: AppTextStyles.bodyMedium(color: AppColors.textMuted)),
-                        Text(provider.providerName, style: AppTextStyles.heading2()),
+                        Text('Welcome',
+                            style: AppTextStyles.bodyMedium(
+                                color: AppColors.textMuted)),
+                        Text(provider.providerName,
+                            style: AppTextStyles.heading2()),
                         const SizedBox(height: 4),
-                        ProviderTypeBadge(type: provider.providerType, compact: true),
+                        ProviderTypeBadge(
+                            type: provider.providerType, compact: true),
                       ],
                     ),
                   ),
@@ -58,7 +67,8 @@ class ProviderDashboardScreen extends ConsumerWidget {
                     children: [
                       Switch(
                         value: provider.isAvailable,
-                        onChanged: (v) => providerRepo.setAvailability(provider.id, v),
+                        onChanged: (v) =>
+                            providerRepo.setAvailability(provider.id, v),
                       ),
                       Text(provider.isAvailable ? 'Available' : 'Unavailable',
                           style: AppTextStyles.caption()),
@@ -67,19 +77,37 @@ class ProviderDashboardScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.5,
-                children: [
-                  _StatCard(label: 'Pending Orders', value: '$pending', icon: Icons.hourglass_top_rounded),
-                  _StatCard(label: 'Active Orders', value: '$active', icon: Icons.local_shipping_rounded),
-                  _StatCard(label: "Today's Jobs", value: '$todaysJobs', icon: Icons.today_rounded),
-                  _StatCard(label: 'Completed', value: '$completed', icon: Icons.task_alt_rounded),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final textScale = MediaQuery.textScalerOf(context).scale(12);
+                  return GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount:
+                        constraints.maxWidth < 320 || textScale > 15 ? 1 : 2,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: textScale > 15 ? 1.2 : 1.5,
+                    children: [
+                      _StatCard(
+                          label: 'Pending Orders',
+                          value: '$pending',
+                          icon: Icons.hourglass_top_rounded),
+                      _StatCard(
+                          label: 'Active Orders',
+                          value: '$active',
+                          icon: Icons.local_shipping_rounded),
+                      _StatCard(
+                          label: "Today's Jobs",
+                          value: '$todaysJobs',
+                          icon: Icons.today_rounded),
+                      _StatCard(
+                          label: 'Completed',
+                          value: '$completed',
+                          icon: Icons.task_alt_rounded),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 12),
               Card(
@@ -87,14 +115,20 @@ class ProviderDashboardScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      const Icon(Icons.payments_rounded, color: AppColors.primaryPink, size: 32),
+                      const Icon(Icons.payments_rounded,
+                          color: AppColors.primaryPink, size: 32),
                       const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Revenue From Completed Orders', style: AppTextStyles.bodySmall()),
-                          Text('KES ${revenue.toStringAsFixed(0)}', style: AppTextStyles.heading2(color: AppColors.primaryPink)),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Revenue From Completed Orders',
+                                style: AppTextStyles.bodySmall()),
+                            Text('KES ${revenue.toStringAsFixed(0)}',
+                                style: AppTextStyles.heading2(
+                                    color: AppColors.primaryPink)),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -103,17 +137,24 @@ class ProviderDashboardScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               Card(
                 child: ListTile(
-                  leading: const Icon(Icons.star_rounded, color: AppColors.primaryPink),
-                  title: Text('Provider Rating', style: AppTextStyles.bodyLarge()),
-                  trailing: Text('${provider.rating.toStringAsFixed(1)} (${provider.reviewCount})',
-                      style: AppTextStyles.bodyLarge(color: AppColors.primaryPink)),
+                  leading: const Icon(Icons.star_rounded,
+                      color: AppColors.primaryPink),
+                  title:
+                      Text('Provider Rating', style: AppTextStyles.bodyLarge()),
+                  trailing: Text(
+                      '${provider.rating.toStringAsFixed(1)} (${provider.reviewCount})',
+                      style: AppTextStyles.bodyLarge(
+                          color: AppColors.primaryPink)),
                 ),
               ),
               Card(
                 child: ListTile(
-                  leading: const Icon(Icons.inventory_2_rounded, color: AppColors.primaryPink),
-                  title: Text('Available Capacity', style: AppTextStyles.bodyLarge()),
-                  trailing: Text('${provider.dailyCapacity} orders / day', style: AppTextStyles.bodyMedium()),
+                  leading: const Icon(Icons.inventory_2_rounded,
+                      color: AppColors.primaryPink),
+                  title: Text('Available Capacity',
+                      style: AppTextStyles.bodyLarge()),
+                  trailing: Text('${provider.dailyCapacity} orders / day',
+                      style: AppTextStyles.bodyMedium()),
                 ),
               ),
             ],
@@ -125,7 +166,8 @@ class ProviderDashboardScreen extends ConsumerWidget {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value, required this.icon});
+  const _StatCard(
+      {required this.label, required this.value, required this.icon});
   final String label;
   final String value;
   final IconData icon;

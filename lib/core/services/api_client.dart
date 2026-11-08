@@ -5,18 +5,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 const _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
 
 class ApiClient {
-  ApiClient({String? baseUrl})
-      : _dio = Dio(BaseOptions(
-          baseUrl: baseUrl ??
-              (_configuredBaseUrl.isNotEmpty
-                  ? _configuredBaseUrl
-                  : kIsWeb
-                      ? 'http://localhost:8000'
-                      : 'http://10.0.2.2:8000'),
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 30),
-          headers: {'Content-Type': 'application/json'},
-        ));
+  ApiClient({String? baseUrl, Dio? dio})
+      : _dio = dio ??
+            Dio(BaseOptions(
+              baseUrl: baseUrl ??
+                  (_configuredBaseUrl.isNotEmpty
+                      ? _configuredBaseUrl
+                      : kIsWeb
+                          ? 'http://localhost:8000'
+                          : 'http://10.0.2.2:8000'),
+              connectTimeout: const Duration(seconds: 15),
+              receiveTimeout: const Duration(seconds: 30),
+              headers: {'Content-Type': 'application/json'},
+            ));
 
   final Dio _dio;
   String get baseUrl => _dio.options.baseUrl;

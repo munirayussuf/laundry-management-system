@@ -65,15 +65,15 @@ class ProviderRepository {
           double? nearLatitude,
           double? nearLongitude}) =>
       _pollList(() async {
-        final r = await _api.get('/api/providers', query: {
-          'provider_type': providerType?.value,
-          'washing_method': washingMethod?.value,
-          'ironing_method': ironingMethod?.value,
+        final query = <String, dynamic>{
           'only_active': onlyActive,
           'only_available': onlyAvailable,
-          'near_lat': nearLatitude,
-          'near_lon': nearLongitude
-        });
+          if (providerType != null) 'provider_type': providerType.value,
+          if (washingMethod != null) 'washing_method': washingMethod.value,
+          if (ironingMethod != null) 'ironing_method': ironingMethod.value,
+        };
+        _addLocationQuery(query, nearLatitude, nearLongitude);
+        final r = await _api.get('/api/providers', query: query);
         return (r.data as List)
             .map((e) => ProviderModel.fromMap(
                 e['id'].toString(), Map<String, dynamic>.from(e)))
@@ -82,17 +82,34 @@ class ProviderRepository {
   Stream<List<ProviderModel>> searchProviders(String query,
           {double? nearLatitude, double? nearLongitude}) =>
       _pollList(() async {
-        final r = await _api.get('/api/providers', query: {
-          'search': query,
+        final params = <String, dynamic>{
+          if (query.trim().isNotEmpty) 'search': query.trim(),
           'only_active': true,
-          'near_lat': nearLatitude,
-          'near_lon': nearLongitude
-        });
+        };
+        _addLocationQuery(params, nearLatitude, nearLongitude);
+        final r = await _api.get('/api/providers', query: params);
         return (r.data as List)
             .map((e) => ProviderModel.fromMap(
                 e['id'].toString(), Map<String, dynamic>.from(e)))
             .toList();
       });
+
+  void _addLocationQuery(
+      Map<String, dynamic> query, double? latitude, double? longitude) {
+    if (latitude == null ||
+        longitude == null ||
+        !latitude.isFinite ||
+        !longitude.isFinite ||
+        latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180) {
+      return;
+    }
+    query['near_lat'] = latitude;
+    query['near_lon'] = longitude;
+  }
+
   Future<void> updateProvider(String id, Map<String, dynamic> fields) =>
       _api.put('/api/providers/$id', data: fields).then((_) {});
   Future<void> setAvailability(String id, bool v) =>

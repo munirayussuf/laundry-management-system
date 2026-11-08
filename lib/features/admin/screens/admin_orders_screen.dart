@@ -28,7 +28,10 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
             child: Text('All Orders', style: AppTextStyles.heading2()),
           ),
           SizedBox(
-            height: 40,
+            height: MediaQuery.textScalerOf(context)
+                .scale(48)
+                .clamp(48.0, 96.0)
+                .toDouble(),
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -61,10 +64,12 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return const ErrorStateView(message: 'Could not load orders.');
+                  return const ErrorStateView(
+                      message: 'Could not load orders.');
                 }
                 final orders = (snapshot.data ?? [])
-                    .where((order) => _filter == null || order.orderStatus == _filter)
+                    .where((order) =>
+                        _filter == null || order.orderStatus == _filter)
                     .toList();
                 if (orders.isEmpty) {
                   return const EmptyStateView(

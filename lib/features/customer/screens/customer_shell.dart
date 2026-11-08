@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_enums.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_widgets.dart';
 import 'customer_home_screen.dart';
 import 'provider_discovery_screen.dart';
 import 'my_orders_screen.dart';
@@ -27,7 +28,7 @@ class CustomerShell extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: IndexedStack(index: index, children: _screens),
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: ResponsiveBottomNavigationBar(
         currentIndex: index,
         onTap: (i) => ref.read(customerTabIndexProvider.notifier).state = i,
         items: const [

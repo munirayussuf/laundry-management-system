@@ -4,6 +4,7 @@ import '../../../core/constants/app_enums.dart';
 import '../../../core/models/provider_model.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_widgets.dart';
 import '../../notifications/notifications_screen.dart';
 import '../../profile/profile_screen.dart';
 import 'provider_dashboard_screen.dart';
@@ -53,7 +54,7 @@ class _ProviderShellState extends ConsumerState<ProviderShell> {
         return Scaffold(
           backgroundColor: AppColors.background,
           body: IndexedStack(index: _index, children: screens),
-          bottomNavigationBar: BottomNavigationBar(
+          bottomNavigationBar: ResponsiveBottomNavigationBar(
             currentIndex: _index,
             onTap: (i) => setState(() => _index = i),
             items: const [

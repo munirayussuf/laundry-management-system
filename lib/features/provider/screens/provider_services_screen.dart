@@ -25,9 +25,10 @@ class ProviderServicesScreen extends ConsumerWidget {
   }) async {
     final formKey = GlobalKey<FormState>();
     final nameController = TextEditingController(text: existing?.name ?? '');
-    final descriptionController = TextEditingController(text: existing?.description ?? '');
-    final priceController =
-        TextEditingController(text: existing != null ? existing.price.toStringAsFixed(0) : '');
+    final descriptionController =
+        TextEditingController(text: existing?.description ?? '');
+    final priceController = TextEditingController(
+        text: existing != null ? existing.price.toStringAsFixed(0) : '');
     String pricingUnit = existing?.pricingUnit ?? _pricingUnits.first;
     bool isAvailable = existing?.isAvailable ?? true;
     bool isSaving = false;
@@ -42,110 +43,132 @@ class ProviderServicesScreen extends ConsumerWidget {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            final viewInsets = MediaQuery.of(context).viewInsets;
+            final availableHeight =
+                MediaQuery.sizeOf(context).height - viewInsets.bottom;
             return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-              ),
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(existing == null ? 'Add Service' : 'Edit Service',
-                        style: AppTextStyles.heading3()),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Service Name'),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Service name is required' : null,
+              padding: EdgeInsets.only(bottom: viewInsets.bottom),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: availableHeight * 0.9),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                              existing == null ? 'Add Service' : 'Edit Service',
+                              style: AppTextStyles.heading3()),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: nameController,
+                            decoration: const InputDecoration(
+                                labelText: 'Service Name'),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Service name is required'
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: descriptionController,
+                            maxLines: 2,
+                            decoration:
+                                const InputDecoration(labelText: 'Description'),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: priceController,
+                            keyboardType: TextInputType.number,
+                            decoration:
+                                const InputDecoration(labelText: 'Price (KES)'),
+                            validator: (v) {
+                              final value = double.tryParse(v ?? '');
+                              if (value == null) return 'Enter a valid price';
+                              if (value < 0) return 'Price cannot be negative';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: pricingUnit,
+                            decoration: const InputDecoration(
+                                labelText: 'Pricing Unit'),
+                            dropdownColor: AppColors.surfaceAlt,
+                            items: _pricingUnits
+                                .map((u) =>
+                                    DropdownMenuItem(value: u, child: Text(u)))
+                                .toList(),
+                            onChanged: (v) => setSheetState(
+                                () => pricingUnit = v ?? pricingUnit),
+                          ),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Available For Booking'),
+                            value: isAvailable,
+                            onChanged: (v) =>
+                                setSheetState(() => isAvailable = v),
+                          ),
+                          const SizedBox(height: 12),
+                          PremiumButton(
+                            label: existing == null
+                                ? 'Add Service'
+                                : 'Save Changes',
+                            isLoading: isSaving,
+                            onPressed: () async {
+                              if (!formKey.currentState!.validate()) return;
+                              setSheetState(() => isSaving = true);
+                              final repo = ref.read(providerRepositoryProvider);
+                              try {
+                                if (existing == null) {
+                                  await repo.addService(
+                                    providerId: providerId,
+                                    name: nameController.text.trim(),
+                                    description:
+                                        descriptionController.text.trim(),
+                                    price: double.parse(
+                                        priceController.text.trim()),
+                                    pricingUnit: pricingUnit,
+                                  );
+                                } else {
+                                  await repo.editService(
+                                    providerId,
+                                    existing.copyWith(
+                                      name: nameController.text.trim(),
+                                      description:
+                                          descriptionController.text.trim(),
+                                      price: double.parse(
+                                          priceController.text.trim()),
+                                      pricingUnit: pricingUnit,
+                                      isAvailable: isAvailable,
+                                    ),
+                                  );
+                                }
+                                if (context.mounted) {
+                                  Navigator.of(context).pop();
+                                  showSuccessSnackBar(
+                                    context,
+                                    existing == null
+                                        ? 'Service added successfully.'
+                                        : 'Service updated successfully.',
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  showErrorSnackBar(context,
+                                      'Could not save the service. Please try again.');
+                                }
+                              } finally {
+                                setSheetState(() => isSaving = false);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: descriptionController,
-                      maxLines: 2,
-                      decoration: const InputDecoration(labelText: 'Description'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: priceController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Price (KES)'),
-                      validator: (v) {
-                        final value = double.tryParse(v ?? '');
-                        if (value == null) return 'Enter a valid price';
-                        if (value < 0) return 'Price cannot be negative';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: pricingUnit,
-                      decoration: const InputDecoration(labelText: 'Pricing Unit'),
-                      dropdownColor: AppColors.surfaceAlt,
-                      items: _pricingUnits
-                          .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                          .toList(),
-                      onChanged: (v) => setSheetState(() => pricingUnit = v ?? pricingUnit),
-                    ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Available For Booking'),
-                      value: isAvailable,
-                      onChanged: (v) => setSheetState(() => isAvailable = v),
-                    ),
-                    const SizedBox(height: 12),
-                    PremiumButton(
-                      label: existing == null ? 'Add Service' : 'Save Changes',
-                      isLoading: isSaving,
-                      onPressed: () async {
-                        if (!formKey.currentState!.validate()) return;
-                        setSheetState(() => isSaving = true);
-                        final repo = ref.read(providerRepositoryProvider);
-                        try {
-                          if (existing == null) {
-                            await repo.addService(
-                              providerId: providerId,
-                              name: nameController.text.trim(),
-                              description: descriptionController.text.trim(),
-                              price: double.parse(priceController.text.trim()),
-                              pricingUnit: pricingUnit,
-                            );
-                          } else {
-                            await repo.editService(
-                              providerId,
-                              existing.copyWith(
-                                name: nameController.text.trim(),
-                                description: descriptionController.text.trim(),
-                                price: double.parse(priceController.text.trim()),
-                                pricingUnit: pricingUnit,
-                                isAvailable: isAvailable,
-                              ),
-                            );
-                          }
-                          if (context.mounted) {
-                            Navigator.of(context).pop();
-                            showSuccessSnackBar(
-                              context,
-                              existing == null
-                                  ? 'Service added successfully.'
-                                  : 'Service updated successfully.',
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            showErrorSnackBar(context, 'Could not save the service. Please try again.');
-                          }
-                        } finally {
-                          setSheetState(() => isSaving = false);
-                        }
-                      },
-                    ),
-                  ],
+                  ),
                 ),
               ),
             );
@@ -155,18 +178,25 @@ class ProviderServicesScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _deleteService(BuildContext context, WidgetRef ref, ServiceModel service) async {
+  Future<void> _deleteService(
+      BuildContext context, WidgetRef ref, ServiceModel service) async {
     final confirmed = await showDeleteConfirmationDialog(
       context,
       title: 'Delete This Service',
-      message: 'Are you sure you want to delete ${service.name}? This action cannot be undone.',
+      message:
+          'Are you sure you want to delete ${service.name}? This action cannot be undone.',
     );
     if (!confirmed) return;
     try {
-      await ref.read(providerRepositoryProvider).deleteService(providerId, service.id);
-      if (context.mounted) showSuccessSnackBar(context, 'Service deleted successfully.');
+      await ref
+          .read(providerRepositoryProvider)
+          .deleteService(providerId, service.id);
+      if (context.mounted)
+        showSuccessSnackBar(context, 'Service deleted successfully.');
     } catch (e) {
-      if (context.mounted) showErrorSnackBar(context, 'Could not delete the service. Please try again.');
+      if (context.mounted)
+        showErrorSnackBar(
+            context, 'Could not delete the service. Please try again.');
     }
   }
 
@@ -180,7 +210,8 @@ class ProviderServicesScreen extends ConsumerWidget {
         backgroundColor: AppColors.primaryPink,
         onPressed: () => _openServiceSheet(context, ref),
         icon: const Icon(Icons.add, color: AppColors.white),
-        label: Text('Add Service', style: AppTextStyles.buttonLabel(color: AppColors.white)),
+        label: Text('Add Service',
+            style: AppTextStyles.buttonLabel(color: AppColors.white)),
       ),
       appBar: const PinkAppBar(
         title: 'My Services',
@@ -200,14 +231,15 @@ class ProviderServicesScreen extends ConsumerWidget {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (snapshot.hasError) {
-                    return ErrorStateView(message: snapshot.error.toString());
+                    return ErrorStateView(message: snapshot.error!);
                   }
                   final services = snapshot.data ?? [];
                   if (services.isEmpty) {
                     return EmptyStateView(
                       icon: Icons.cleaning_services_outlined,
                       title: 'No Services Yet',
-                      message: 'Add the laundry services you offer so customers can book them.',
+                      message:
+                          'Add the laundry services you offer so customers can book them.',
                       actionLabel: 'Add Service',
                       onAction: () => _openServiceSheet(context, ref),
                     );
@@ -221,29 +253,40 @@ class ProviderServicesScreen extends ConsumerWidget {
                         margin: const EdgeInsets.only(bottom: 12),
                         child: ListTile(
                           title: Row(children: [
-                            Expanded(child: Text(service.name, style: AppTextStyles.bodyLarge())),
+                            Expanded(
+                                child: Text(service.name,
+                                    style: AppTextStyles.bodyLarge())),
                             if (!service.isAvailable)
-                              Text('Paused', style: AppTextStyles.caption(color: AppColors.warning)),
+                              Text('Paused',
+                                  style: AppTextStyles.caption(
+                                      color: AppColors.warning)),
                           ]),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               if (service.description.isNotEmpty)
-                                Text(service.description, style: AppTextStyles.bodySmall()),
-                              Text('KES ${service.price.toStringAsFixed(0)} ${service.pricingUnit}',
-                                  style: AppTextStyles.bodySmall(color: AppColors.primaryPink)),
+                                Text(service.description,
+                                    style: AppTextStyles.bodySmall()),
+                              Text(
+                                  'KES ${service.price.toStringAsFixed(0)} ${service.pricingUnit}',
+                                  style: AppTextStyles.bodySmall(
+                                      color: AppColors.primaryPink)),
                             ],
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.edit_outlined, color: AppColors.primaryPink),
-                                onPressed: () => _openServiceSheet(context, ref, existing: service),
+                                icon: const Icon(Icons.edit_outlined,
+                                    color: AppColors.primaryPink),
+                                onPressed: () => _openServiceSheet(context, ref,
+                                    existing: service),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline, color: AppColors.error),
-                                onPressed: () => _deleteService(context, ref, service),
+                                icon: const Icon(Icons.delete_outline,
+                                    color: AppColors.error),
+                                onPressed: () =>
+                                    _deleteService(context, ref, service),
                               ),
                             ],
                           ),

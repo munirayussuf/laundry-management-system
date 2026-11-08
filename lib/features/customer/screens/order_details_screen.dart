@@ -12,19 +12,23 @@ class OrderDetailsScreen extends ConsumerWidget {
   const OrderDetailsScreen({super.key, required this.orderId});
   final String orderId;
 
-  Future<void> _cancelOrder(BuildContext context, WidgetRef ref, OrderModel order) async {
+  Future<void> _cancelOrder(
+      BuildContext context, WidgetRef ref, OrderModel order) async {
     final confirmed = await showDeleteConfirmationDialog(
       context,
       title: 'Cancel This Order',
-      message: 'Are you sure you want to cancel this order? This action cannot be undone.',
+      message:
+          'Are you sure you want to cancel this order? This action cannot be undone.',
     );
     if (!confirmed) return;
     await ref.read(orderRepositoryProvider).cancelOrder(order.id);
     await ref.read(smsServiceProvider).sendCancellation('', order.id);
-    if (context.mounted) showSuccessSnackBar(context, 'Your order has been cancelled.');
+    if (context.mounted)
+      showSuccessSnackBar(context, 'Your order has been cancelled.');
   }
 
-  Future<void> _openReviewSheet(BuildContext context, WidgetRef ref, OrderModel order) async {
+  Future<void> _openReviewSheet(
+      BuildContext context, WidgetRef ref, OrderModel order) async {
     final user = ref.read(currentUserProvider).valueOrNull;
     if (user == null) return;
     double rating = 5;
@@ -47,51 +51,60 @@ class OrderDetailsScreen extends ConsumerWidget {
           ),
           child: StatefulBuilder(
             builder: (context, setSheetState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Rate ${order.providerName}', style: AppTextStyles.heading3()),
-                  const SizedBox(height: 16),
-                  Center(
-                    child: RatingBar.builder(
-                      initialRating: 5,
-                      minRating: 1,
-                      itemCount: 5,
-                      itemSize: 36,
-                      itemBuilder: (context, _) => const Icon(Icons.star_rounded, color: AppColors.primaryPink),
-                      onRatingUpdate: (value) => setSheetState(() => rating = value),
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Rate ${order.providerName}',
+                        style: AppTextStyles.heading3()),
+                    const SizedBox(height: 16),
+                    Center(
+                      child: RatingBar.builder(
+                        initialRating: 5,
+                        minRating: 1,
+                        itemCount: 5,
+                        itemSize: 36,
+                        itemBuilder: (context, _) => const Icon(
+                            Icons.star_rounded,
+                            color: AppColors.primaryPink),
+                        onRatingUpdate: (value) =>
+                            setSheetState(() => rating = value),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: commentController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(hintText: 'Share your experience'),
-                  ),
-                  const SizedBox(height: 16),
-                  PremiumButton(
-                    label: 'Submit Review',
-                    onPressed: () async {
-                      try {
-                        await ref.read(reviewRepositoryProvider).submitReview(
-                              orderId: order.id,
-                              customerId: user.uid,
-                              customerName: user.name,
-                              providerId: order.providerId,
-                              rating: rating.round(),
-                              comment: commentController.text.trim(),
-                            );
-                        if (context.mounted) {
-                          Navigator.of(context).pop();
-                          showSuccessSnackBar(context, 'Thank you for your review.');
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: commentController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                          hintText: 'Share your experience'),
+                    ),
+                    const SizedBox(height: 16),
+                    PremiumButton(
+                      label: 'Submit Review',
+                      onPressed: () async {
+                        try {
+                          await ref.read(reviewRepositoryProvider).submitReview(
+                                orderId: order.id,
+                                customerId: user.uid,
+                                customerName: user.name,
+                                providerId: order.providerId,
+                                rating: rating.round(),
+                                comment: commentController.text.trim(),
+                              );
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                            showSuccessSnackBar(
+                                context, 'Thank you for your review.');
+                          }
+                        } catch (e) {
+                          if (context.mounted)
+                            showErrorSnackBar(context, e.toString());
                         }
-                      } catch (e) {
-                        if (context.mounted) showErrorSnackBar(context, e.toString());
-                      }
-                    },
-                  ),
-                ],
+                      },
+                    ),
+                  ],
+                ),
               );
             },
           ),
@@ -105,7 +118,9 @@ class OrderDetailsScreen extends ConsumerWidget {
     final orderRepo = ref.watch(orderRepositoryProvider);
 
     return Scaffold(
-      appBar: const PinkAppBar(title: 'Order Tracking', subtitle: 'Follow your laundry in real time'),
+      appBar: const PinkAppBar(
+          title: 'Order Tracking',
+          subtitle: 'Follow your laundry in real time'),
       body: StreamBuilder<OrderModel?>(
         stream: orderRepo.watchOrder(orderId),
         builder: (context, snapshot) {
@@ -114,7 +129,8 @@ class OrderDetailsScreen extends ConsumerWidget {
           }
           final order = snapshot.data;
           if (order == null) {
-            return const ErrorStateView(message: 'This order could not be found.');
+            return const ErrorStateView(
+                message: 'This order could not be found.');
           }
           return ListView(
             padding: const EdgeInsets.all(20),
@@ -126,7 +142,9 @@ class OrderDetailsScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        Expanded(child: Text(order.providerName, style: AppTextStyles.heading3())),
+                        Expanded(
+                            child: Text(order.providerName,
+                                style: AppTextStyles.heading3())),
                         OrderStatusBadge(status: order.orderStatus),
                       ]),
                       const SizedBox(height: 4),
@@ -152,7 +170,8 @@ class OrderDetailsScreen extends ConsumerWidget {
               ...order.items.map((item) => ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(item.serviceName),
-                    subtitle: Text('${item.quantity.toStringAsFixed(0)} ${item.pricingUnit}'),
+                    subtitle: Text(
+                        '${item.quantity.toStringAsFixed(0)} ${item.pricingUnit}'),
                     trailing: Text('KES ${item.lineTotal.toStringAsFixed(0)}'),
                   )),
               const Divider(),
@@ -160,20 +179,27 @@ class OrderDetailsScreen extends ConsumerWidget {
                 contentPadding: EdgeInsets.zero,
                 title: Text('Total Amount', style: AppTextStyles.bodyLarge()),
                 trailing: Text('KES ${order.totalAmount.toStringAsFixed(0)}',
-                    style: AppTextStyles.heading3(color: AppColors.primaryPink)),
+                    style:
+                        AppTextStyles.heading3(color: AppColors.primaryPink)),
               ),
               const SizedBox(height: 12),
-              Text('Payment Method: ${order.paymentMethod.label}', style: AppTextStyles.bodyMedium()),
-              Text('Payment Status: ${order.paymentStatus.label}', style: AppTextStyles.bodyMedium()),
+              Text('Payment Method: ${order.paymentMethod.label}',
+                  style: AppTextStyles.bodyMedium()),
+              Text('Payment Status: ${order.paymentStatus.label}',
+                  style: AppTextStyles.bodyMedium()),
               const SizedBox(height: 12),
               if (order.pickupRequested)
-                Text('Pickup: ${order.pickupAddress.label}', style: AppTextStyles.bodyMedium()),
+                Text('Pickup: ${order.pickupAddress.label}',
+                    style: AppTextStyles.bodyMedium()),
               if (order.deliveryRequested)
-                Text('Delivery: ${order.deliveryAddress.label}', style: AppTextStyles.bodyMedium()),
+                Text('Delivery: ${order.deliveryAddress.label}',
+                    style: AppTextStyles.bodyMedium()),
               if (order.notes.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text('Notes', style: AppTextStyles.bodyLarge()),
-                Text(order.notes, style: AppTextStyles.bodyMedium(color: AppColors.textMuted)),
+                Text(order.notes,
+                    style:
+                        AppTextStyles.bodyMedium(color: AppColors.textMuted)),
               ],
               const SizedBox(height: 24),
               if (order.orderStatus == OrderStatus.pending)
@@ -218,15 +244,20 @@ class _StatusTimeline extends StatelessWidget {
                   width: 16,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: reached ? AppColors.primaryPink : AppColors.surfaceAlt,
-                    border: Border.all(color: reached ? AppColors.primaryPink : AppColors.textMuted),
+                    color:
+                        reached ? AppColors.primaryPink : AppColors.surfaceAlt,
+                    border: Border.all(
+                        color: reached
+                            ? AppColors.primaryPink
+                            : AppColors.textMuted),
                   ),
                 ),
                 if (!isLast)
                   Container(
                     width: 2,
                     height: 32,
-                    color: reached ? AppColors.primaryPink : AppColors.surfaceAlt,
+                    color:
+                        reached ? AppColors.primaryPink : AppColors.surfaceAlt,
                   ),
               ],
             ),

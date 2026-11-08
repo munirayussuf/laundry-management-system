@@ -25,6 +25,7 @@ class _ProviderDiscoveryScreenState
   final _searchController = TextEditingController();
   String _query = '';
   bool _nearbyEnabled = false;
+  int _retryVersion = 0;
 
   Future<void> _useCurrentLocation() async {
     try {
@@ -118,7 +119,10 @@ class _ProviderDiscoveryScreenState
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 40,
+            height: MediaQuery.textScalerOf(context)
+                .scale(48)
+                .clamp(48.0, 96.0)
+                .toDouble(),
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -163,13 +167,17 @@ class _ProviderDiscoveryScreenState
           const SizedBox(height: 8),
           Expanded(
             child: StreamBuilder<List<ProviderModel>>(
+              key: ValueKey(_retryVersion),
               stream: stream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return ErrorStateView(message: snapshot.error.toString());
+                  return ErrorStateView(
+                    message: snapshot.error!,
+                    onRetry: () => setState(() => _retryVersion++),
+                  );
                 }
                 final providers = snapshot.data ?? [];
                 if (providers.isEmpty) {
@@ -179,17 +187,24 @@ class _ProviderDiscoveryScreenState
                     message: 'Try a different filter or search term.',
                   );
                 }
-                return GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 0.72,
-                  ),
-                  itemCount: providers.length,
-                  itemBuilder: (context, i) =>
-                      ProviderCard(provider: providers[i]),
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final textScale = MediaQuery.textScalerOf(context);
+                    return GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: constraints.maxWidth < 360 ? 1 : 2,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        mainAxisExtent: (textScale.scale(200) + 40)
+                            .clamp(240.0, 440.0)
+                            .toDouble(),
+                      ),
+                      itemCount: providers.length,
+                      itemBuilder: (context, i) =>
+                          ProviderCard(provider: providers[i]),
+                    );
+                  },
                 );
               },
             ),

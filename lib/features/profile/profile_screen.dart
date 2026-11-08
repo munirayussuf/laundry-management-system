@@ -459,19 +459,23 @@ class ProfileScreen extends ConsumerWidget {
                       const Text('Send a concern directly to the admin team.'),
                   onTap: () => _sendSupportMessage(context, ref),
                 ),
-                if (_ussdShortcode.isNotEmpty)
-                  ListTile(
-                    leading:
-                        const Icon(Icons.dialpad, color: AppColors.primaryPink),
-                    title: const Text('USSD for feature phones'),
-                    subtitle: const Text('Dial $_ussdShortcode'),
-                    onTap: () => _showInformation(
-                      context,
-                      title: 'USSD access',
-                      body:
-                          'Dial $_ussdShortcode from a feature phone to find providers, book a service and check an order.',
-                    ),
+                ListTile(
+                  leading:
+                      const Icon(Icons.dialpad, color: AppColors.primaryPink),
+                  title: const Text('USSD for feature phones'),
+                  subtitle: Text(
+                    _ussdShortcode.isEmpty
+                        ? 'Shortcode not configured yet'
+                        : 'Dial $_ussdShortcode',
                   ),
+                  onTap: () => _showInformation(
+                    context,
+                    title: 'USSD access',
+                    body: _ussdShortcode.isEmpty
+                        ? 'A shortcode has not been configured yet.'
+                        : 'Dial $_ussdShortcode from a feature phone to find providers, book a service and check an order.',
+                  ),
+                ),
               ],
             ),
           ),

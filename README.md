@@ -2,9 +2,9 @@
 
 A Flutter and FastAPI/PostgreSQL laundry management platform developed for Kenya, supporting both formal laundry businesses and informal **Mama Fua / Jua Kali** laundry service providers.
 
-The system provides customers with a digital platform to discover laundry providers, view available services, place and track orders, and manage their profiles. Laundry providers can manage their services and orders, while administrators can manage users, providers, orders, and support requests.
+The system connects customers with laundry service providers through an Android application. Customers can discover providers, explore available services, place laundry orders and track their requests. Providers can manage their profiles, services and customer orders, while administrators oversee users, providers and platform activities.
 
-> **Project Status:** Working academic prototype. The core Flutter application and FastAPI/PostgreSQL backend are implemented. USSD, SMS, and M-Pesa payment integrations are included as planned components but are **not currently operational** in the submitted prototype and require further external configuration and integration.
+> **Project Status:** Academic prototype. The core application and backend have been developed. USSD, SMS and M-Pesa payment integrations are not currently operational and require further integration, configuration and testing.
 
 ---
 
@@ -12,7 +12,7 @@ The system provides customers with a digital platform to discover laundry provid
 
 1. [Project Overview](#project-overview)
 2. [Key Features](#key-features)
-3. [Screenshots](#screenshots)
+3. [Application Screenshots](#application-screenshots)
 4. [Technology Stack](#technology-stack)
 5. [System Architecture](#system-architecture)
 6. [User Roles](#user-roles)
@@ -20,213 +20,222 @@ The system provides customers with a digital platform to discover laundry provid
 8. [Project Structure](#project-structure)
 9. [Installation](#installation)
 10. [Running the Application](#running-the-application)
-11. [APK](#apk)
+11. [Android APK](#android-apk)
 12. [USSD, SMS and M-Pesa Status](#ussd-sms-and-m-pesa-status)
 13. [Security](#security)
 14. [Testing](#testing)
 15. [Project Limitations](#project-limitations)
-16. [Academic Project](#academic-project)
+16. [Future Improvements](#future-improvements)
+17. [Academic Project](#academic-project)
 
 ---
 
 ## Project Overview
 
-The **Laundry Service Management System** is designed to improve access to laundry services by connecting customers with formal laundry businesses and informal **Mama Fua / Jua Kali** service providers through a single digital platform.
+The Laundry Service Management System is designed to improve access to laundry services by connecting customers with both formal laundry businesses and informal Mama Fua / Jua Kali service providers through a digital platform.
 
-The system consists of:
+The system provides:
 
-- A Flutter Android application for customers and laundry providers
-- A provider management interface
-- An administrator dashboard
-- A FastAPI backend
-- A PostgreSQL database
-- Planned USSD, SMS, and M-Pesa integration
+- A Flutter Android application.
+- Customer registration and account management.
+- Laundry provider registration and management.
+- Laundry service discovery and booking.
+- Order management and tracking.
+- An administrator interface.
+- A FastAPI backend.
+- A PostgreSQL database.
 
-The application is designed to support customers who use smartphones while providing a foundation for future USSD-based access for users with limited internet or smartphone access.
+The project aims to make laundry service delivery more accessible, organized and convenient for customers and service providers in Kenya.
 
 ---
 
 ## Key Features
 
-### 👤 Customer
+### Customer Features
 
-- User registration and login
-- Password recovery
-- Customer dashboard
-- Browse available laundry providers
-- Search and filter providers
-- View nearby providers using location
-- View provider profiles
-- View available laundry services and prices
-- Place laundry orders
-- Calculate order totals
-- Provide pickup and delivery locations
-- Track order status
-- Cancel orders where applicable
-- Submit reviews and ratings
-- Edit customer profile
-- Upload profile photo
-- Submit support/help requests
+- Customer registration and login.
+- Customer dashboard.
+- Browse available laundry providers.
+- Search and filter providers.
+- View provider profiles.
+- Explore available laundry services.
+- View service prices.
+- Place laundry orders.
+- View order details.
+- Track laundry order progress.
+- View order statuses such as Pending, Approved, Processing and Completed.
+- Cancel orders where applicable.
+- Submit ratings and reviews.
+- Manage customer profile.
+- Update profile information.
+- Submit help and support requests.
+- Receive application notifications.
 
-### 🧺 Laundry Provider
+### Provider Features
 
-The provider interface supports both formal laundry businesses and **Mama Fua / Jua Kali** providers.
+The provider interface supports formal laundry businesses and informal Mama Fua / Jua Kali service providers.
 
-- Provider registration
-- Provider profile management
-- Specify provider type
-- Set washing and ironing methods
-- Add service prices
-- Set turnaround time
-- Set daily service capacity
-- Manage availability
-- Create laundry services
-- Edit services
-- Delete services
-- View incoming orders
-- Accept or reject orders
-- Update order status
-- View completed orders
-- Provider dashboard with order statistics
+- Provider registration.
+- Provider profile management.
+- Specify provider type.
+- Set washing and ironing methods.
+- Add laundry services.
+- Set service prices.
+- Set turnaround time.
+- Set daily service capacity.
+- Manage service availability.
+- View incoming customer orders.
+- Accept or reject orders.
+- Update order status.
+- Manage existing services.
+- View provider dashboard information.
 
-### 👨‍💼 Administrator
+### Administrator Features
 
-- Admin dashboard
-- View platform statistics
-- Manage customers
-- Activate/deactivate users
-- Manage laundry providers
-- Verify providers
-- Activate/deactivate providers
-- Manage orders
-- View support messages
-- Manage submitted support requests
+- Administrator dashboard.
+- View platform statistics.
+- Manage customer accounts.
+- Manage laundry providers.
+- Activate and deactivate accounts.
+- Verify providers.
+- View and manage orders.
+- View customer support requests.
 
 ---
 
-## Screenshots
+## Application Screenshots
 
-The application uses a **light rose/pink visual design** with white cards, rounded components, pink action buttons, and deep plum text.
+The application uses a **light rose/pink design system**, featuring a soft pink background, white cards, magenta action buttons, deep plum text and rounded interface components.
 
-### Customer App
+### Main Interface
 
-![Login](screenshots/login.png)
+![Interface](screenshots/Interface.jpeg)
 
-![Customer Home](screenshots/customer-home.png)
+### Customer Form
 
-![Provider Discovery](screenshots/provider-discovery.png)
+![Customer Form](screenshots/Customerform.jpeg)
 
-![Provider Profile](screenshots/provider-profile.png)
+### Login Form
 
-![Booking](screenshots/booking.png)
+![Login Form](screenshots/loginform.jpeg)
 
-![Order Tracking](screenshots/order-tracking.png)
+### Provider Form
 
-### Provider App
+![Provider Form](screenshots/Providerform.jpeg)
 
-![Provider Dashboard](screenshots/provider-dashboard.png)
+### Profiles
 
-![Provider Orders](screenshots/provider-orders.png)
+![Profile](screenshots/profilee.jpeg)
 
-### Admin
+![Profile](screenshots/profile.jpeg)
 
-![Admin Dashboard](screenshots/admin-dashboard.png)
+### Notifications
 
-> Replace the screenshot filenames above with the exact filenames you upload to the `screenshots` folder in the repository.
+![Notifications](screenshots/notifications.jpeg)
+
+![Notifications](screenshots/notificationss.jpeg)
+
+### Orders
+
+![Orders](screenshots/Orders.jpeg)
+
+### Services
+
+![Services](screenshots/Services.jpeg)
+
+### Services Provided
+
+![Services Provided](screenshots/servicesprovided.jpeg)
+
+### Order Tracking
+
+![Track Order](screenshots/track.jpeg)
+
+The order tracking interface allows customers to follow the progress of their laundry requests, including statuses such as Pending, Approved, Processing and Completed.
 
 ---
 
 ## Technology Stack
 
-| Layer | Technology |
+| Component | Technology |
 |---|---|
-| Mobile Application | Flutter |
+| Frontend Framework | Flutter |
 | Programming Language | Dart |
 | State Management | Riverpod |
-| Routing | go_router |
-| Backend | FastAPI |
+| Navigation | go_router |
+| Backend Framework | FastAPI |
 | Backend Language | Python |
 | Database | PostgreSQL |
 | ORM | SQLAlchemy |
 | Authentication | JWT |
 | API Communication | REST API |
-| Platform | Android |
-| Version Control | Git & GitHub |
+| Development Environment | Android Studio |
+| Version Control | Git and GitHub |
 
 ---
 
 ## System Architecture
 
+The system follows a client-server architecture.
+
 ```text
-              Flutter Android Application
-                         │
-                         │ REST API
-                         ▼
-                  FastAPI Backend
-                         │
-                         │
-                         ▼
-                   PostgreSQL
-                    Database
+       Flutter Android Application
+                   |
+                   |
+                REST API
+                   |
+                   ▼
+             FastAPI Backend
+                   |
+                   |
+                   ▼
+             PostgreSQL
+                Database
 ```
 
-The Flutter application communicates with the FastAPI backend through REST APIs.
+### Frontend
 
-The backend manages authentication, business logic, orders, providers, services, reviews, notifications, support messages, and database operations.
+The Flutter application provides the interfaces used by customers, laundry providers and administrators.
+
+### Backend
+
+The FastAPI backend handles application requests, authentication, user management, provider information, services, orders and other system operations.
+
+### Database
+
+PostgreSQL stores the application's data, including users, providers, services, orders, reviews and notifications.
 
 ---
 
 ## User Roles
 
-| User | Main Functions |
+The system has three main user roles.
+
+| User Role | Responsibilities |
 |---|---|
-| Customer | Find providers, view services, place orders, track orders and submit reviews |
-| Provider | Manage services, receive orders and update order status |
-| Admin | Manage users, providers, orders and support requests |
+| Customer | Discover laundry providers, view services, place orders and track laundry requests. |
+| Provider | Manage laundry services, receive customer orders and update order progress. |
+| Administrator | Manage customers, providers, orders and support requests. |
 
 ---
 
 ## Database Design
 
-The system uses PostgreSQL for persistent data storage.
+The application uses PostgreSQL for data storage and management.
 
-### Main entities
+The main database entities include:
 
-**Users**
-
-Stores customer, provider and administrator account information.
-
-**Providers**
-
-Stores laundry provider information including provider type, services, pricing, location, availability and verification status.
-
-**Services**
-
-Stores individual laundry services offered by providers.
-
-**Orders**
-
-Stores customer orders, selected services, pickup/delivery information, order status and total amount.
-
-**Payments**
-
-Stores payment-related information associated with orders.
-
-**Notifications**
-
-Stores notifications generated for users.
-
-**Reviews**
-
-Stores customer ratings and reviews for laundry providers.
-
-**Support Messages**
-
-Stores customer support and help requests.
-
-**USSD Sessions**
-
-Provides the database structure required for future USSD session management.
+| Entity | Description |
+|---|---|
+| Users | Stores customer, provider and administrator account information. |
+| Providers | Stores laundry provider profiles, locations, availability and business details. |
+| Services | Stores laundry services offered by providers and their prices. |
+| Orders | Stores customer bookings, selected services, order details and order status. |
+| Payments | Stores payment-related records associated with orders. |
+| Notifications | Stores notifications generated for users. |
+| Reviews | Stores customer ratings and reviews. |
+| Support Messages | Stores customer support requests. |
+| USSD Sessions | Provides storage for USSD session information. |
 
 ---
 
@@ -264,21 +273,28 @@ laundry_service_app/
 │   └── app/
 │
 ├── screenshots/
+│   ├── Interface.jpeg
+│   ├── Customerform.jpeg
+│   ├── loginform.jpeg
+│   ├── Providerform.jpeg
+│   ├── profilee.jpeg
+│   ├── profile.jpeg
+│   ├── notifications.jpeg
+│   ├── notificationss.jpeg
+│   ├── Orders.jpeg
+│   ├── Services.jpeg
+│   ├── servicesprovided.jpeg
+│   └── track.jpeg
 │
 ├── legacy_firebase_functions/
-│
 ├── firestore/
-│
 ├── tools/
-│
 ├── pubspec.yaml
-│
 ├── docker-compose.yml
-│
 └── README.md
 ```
 
-The `legacy_firebase_functions` directory contains an earlier Firebase implementation. The current application uses **FastAPI and PostgreSQL**.
+The `legacy_firebase_functions/` directory contains an earlier Firebase implementation. The current application uses FastAPI and PostgreSQL.
 
 ---
 
@@ -293,214 +309,221 @@ The `legacy_firebase_functions` directory contains an earlier Firebase implement
 - PostgreSQL
 - Git
 
-### Clone the repository
+### Clone the Repository
 
 ```bash
 git clone <your-repository-url>
 cd laundry_service_app
 ```
 
-### Install Flutter dependencies
+### Install Flutter Dependencies
 
 ```bash
 flutter pub get
 ```
 
-### Run Flutter
+### Run the Flutter Application
 
 ```bash
 flutter run
 ```
 
-### Backend
+### Backend Setup
 
-The backend is built using FastAPI and communicates with PostgreSQL.
+The backend uses FastAPI and PostgreSQL.
 
-Install the required Python dependencies and configure the PostgreSQL database according to the backend environment configuration.
+Install the required Python dependencies, configure the PostgreSQL database connection and set the necessary environment variables.
 
-Example:
+Example command:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
+The backend must be running and accessible through the API URL configured in the Flutter application.
+
 ---
 
 ## Running the Application
 
-The application consists of two main parts:
+The system consists of two main components.
 
 ### Flutter Frontend
 
-The Flutter application provides the user interface for:
+The Flutter frontend provides the user interfaces for:
 
-- Customers
-- Laundry providers
-- Administrators
+- Customers.
+- Laundry providers.
+- Administrators.
 
 ### FastAPI Backend
 
-The FastAPI backend handles:
+The backend manages:
 
-- Authentication
-- User management
-- Provider management
-- Services
-- Orders
-- Reviews
-- Notifications
-- Support requests
-- Database operations
+- Authentication.
+- User accounts.
+- Provider information.
+- Laundry services.
+- Customer orders.
+- Order status updates.
+- Reviews.
+- Notifications.
+- Support requests.
+- Database operations.
 
-The Flutter application communicates with the backend through the configured API URL.
+The Flutter application communicates with the backend through REST API requests.
 
 ---
 
-## 📱 APK
+## Android APK
 
-An Android APK is included for demonstration and academic evaluation.
+An Android APK is provided for application demonstration and academic evaluation.
 
-### Download
+### Download the Application
 
 **[Download Laundry Management System APK](laundry-management-system.apk)**
 
-The APK can be installed on an Android device for testing the application interface and implemented functionality.
+The APK can be downloaded and installed on a compatible Android device.
 
-### Generate a new APK
+### Generate an APK
 
-For a release build:
+To generate a release APK, run:
 
 ```bash
 flutter build apk --release
 ```
 
-The generated APK can be found at:
+The generated file will be available at:
 
 ```text
 build/app/outputs/flutter-apk/app-release.apk
+```
+
+To generate smaller APKs for different processor architectures:
+
+```bash
+flutter build apk --split-per-abi
 ```
 
 ---
 
 ## USSD, SMS and M-Pesa Status
 
-The project was designed with future integration of USSD, SMS communication, and M-Pesa payments.
+The project was designed to support additional communication and payment services to improve accessibility and convenience.
 
-However, these external services are **not currently operational in the submitted prototype**.
+However, the following integrations are not currently operational in the submitted prototype.
 
-### USSD
+### USSD Integration
 
-The project contains the backend structure for USSD functionality, but the USSD service is not currently connected to a working telecom/USSD provider.
+USSD functionality was included in the project design to allow customers using feature phones to access laundry services without requiring a smartphone or internet connection.
 
-Therefore:
+The USSD integration is not currently operational because the external service connection and configuration have not been completed.
 
-> **USSD: Not currently operational.**
+**Status: Not operational.**
 
-### SMS
+### SMS Integration
 
-The project contains backend preparation for SMS integration, but SMS communication has not been successfully connected and tested with a live SMS gateway.
+SMS functionality was planned to provide customers and laundry providers with order updates and notifications.
 
-Therefore:
+The SMS gateway integration has not been successfully connected and tested.
 
-> **SMS: Not currently operational.**
+**Status: Not operational.**
 
-### M-Pesa Payment
+### M-Pesa Payment Integration
 
-The project contains payment-related backend structures, but the M-Pesa/Daraja payment integration is not currently working in the submitted prototype.
+M-Pesa integration was planned to allow customers to pay for laundry services through mobile money.
 
-Therefore:
+The Safaricom Daraja payment integration is not currently working in the submitted prototype.
 
-> **M-Pesa payments: Not currently operational.**
+**Status: Not operational.**
 
-These components can be completed in future development by configuring the required third-party accounts, credentials, callback URLs, and service-provider integration.
-
-The core application does **not depend on these integrations to demonstrate the main customer, provider, and administrator workflows**.
+These integrations are areas for further development and require the appropriate third-party accounts, credentials, callback configurations and testing.
 
 ---
 
 ## Security
 
-The backend uses JWT-based authentication for protected API routes.
+The backend uses JWT-based authentication to manage authenticated API requests.
 
-The system also separates functionality according to user roles:
+The application also separates access according to user roles:
 
 - Customer
 - Provider
 - Administrator
 
-Sensitive backend credentials should be stored in environment variables and should not be committed to GitHub.
+Sensitive credentials and database configuration should be stored in environment variables and should not be uploaded to the public GitHub repository.
 
 ---
 
 ## Testing
 
-The implemented application was tested through the Flutter Android application and backend environment.
+The application has been developed with customer, provider and administrator workflows.
 
-### Core functionality tested
+The following core functions are included in the application's testing scope:
 
-- User registration
-- User login
-- Role-based access
-- Provider registration
-- Provider discovery
-- Provider profile viewing
-- Service management
-- Laundry booking
-- Order creation
-- Order tracking
-- Order status updates
-- Order cancellation
-- Provider management
-- Customer profile management
-- Reviews and ratings
-- Support message submission
-- Administrator management functions
+- User registration and login.
+- Customer account management.
+- Provider registration.
+- Provider discovery.
+- Provider profile viewing.
+- Service management.
+- Laundry booking.
+- Order creation.
+- Order tracking.
+- Order status updates.
+- Profile management.
+- Notifications.
+- Reviews and ratings.
+- Administrator management functions.
 
-### External integrations
+External integrations such as USSD, SMS and M-Pesa require further testing after their connections are completed.
+
+### Feature Status
 
 | Feature | Status |
 |---|---|
-| Flutter Android application | ✅ Implemented |
-| FastAPI backend | ✅ Implemented |
-| PostgreSQL database | ✅ Implemented |
-| Customer functionality | ✅ Implemented |
-| Provider functionality | ✅ Implemented |
-| Admin functionality | ✅ Implemented |
-| USSD | ⚠️ Not operational |
-| SMS | ⚠️ Not operational |
-| M-Pesa | ⚠️ Not operational |
+| Flutter Android Application | Implemented |
+| FastAPI Backend | Implemented |
+| PostgreSQL Database | Implemented |
+| Customer Interface | Implemented |
+| Provider Interface | Implemented |
+| Administrator Interface | Implemented |
+| Laundry Service Management | Implemented |
+| Order Management | Implemented |
+| Order Tracking | Implemented |
+| USSD Integration | Not operational |
+| SMS Integration | Not operational |
+| M-Pesa Integration | Not operational |
 
 ---
 
 ## Project Limitations
 
-The current prototype has several limitations:
+The current prototype has the following limitations:
 
-- USSD integration is not currently operational.
-- SMS integration is not currently operational.
-- M-Pesa payment integration is not currently operational.
-- Third-party service credentials and production configurations are not included in the repository.
+- USSD functionality is not operational.
+- SMS notifications are not operational.
+- M-Pesa payment integration is not operational.
+- External service configurations require further development.
 - The application is currently focused on Android.
-- Some external integrations require additional provider approval and configuration before they can be used in production.
-
-These limitations provide areas for future development and deployment.
+- Additional testing is required before production deployment.
 
 ---
 
 ## Future Improvements
 
-Future versions of the system can include:
+Future development may include:
 
-- Fully operational USSD access
-- SMS notifications
-- M-Pesa payment integration
-- Provider/customer communication
-- Push notifications
-- Advanced analytics and reporting
-- Production cloud storage for profile images
-- Android and iOS support
-- Improved offline functionality
-- More extensive automated testing
+- Fully operational USSD access.
+- SMS notifications and order updates.
+- M-Pesa payment integration.
+- Customer-provider communication.
+- Push notifications.
+- Advanced reports and analytics.
+- Improved offline functionality.
+- Cloud-based image storage.
+- Expanded automated testing.
+- Support for additional mobile platforms.
 
 ---
 
@@ -508,11 +531,11 @@ Future versions of the system can include:
 
 This project was developed as a **Bachelor of Science in Information Technology final-year academic project** at **Umma University, Kenya**.
 
-### Project Focus
+### Project Title
 
 **Laundry Service Management System: An Inclusive Digital Platform for Formal and Informal (Mama Fua/Jua Kali) Laundry Service Delivery**
 
-The project focuses on using digital technology to improve access to laundry services while providing formal and informal laundry service providers with tools for managing their services and customer orders.
+The project focuses on using digital technology to improve access to laundry services while providing formal and informal laundry service providers with a platform for managing their services and customer orders.
 
 ---
 

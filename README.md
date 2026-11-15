@@ -381,12 +381,11 @@ An Android APK is provided for application demonstration and academic evaluation
 
 ### Download the Application
 
-**[Download Laundry Management System APK](laundry-management-system.apk)**
+**[Download Laundry Management System APK](https://drive.google.com/file/d/1aug1fc6mq7A5uztVMmQ8E5wR8wI787p0/view?usp=sharing)**
 
 The APK can be downloaded and installed on a compatible Android device.
 
 ### Generate an APK
-https://drive.google.com/file/d/1aug1fc6mq7A5uztVMmQ8E5wR8wI787p0/view?usp=sharing
 
 To generate a release APK, run:
 

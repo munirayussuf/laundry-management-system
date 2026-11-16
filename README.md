@@ -119,9 +119,6 @@ The application uses a **light rose/pink design system**, featuring a soft pink 
 
 ![Login Form](screenshots/loginform.jpeg)
 
-### Provider Form
-
-![Provider Form](screenshots/Providerform.jpeg)
 
 ### Profiles
 
